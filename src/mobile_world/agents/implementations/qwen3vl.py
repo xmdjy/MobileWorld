@@ -220,6 +220,7 @@ class Qwen3VLAgentMCP(MCPAgent):
 
         screenshot = observation["screenshot"]
         self.history_images.append(screenshot)
+        reviewer_hint = (observation.get("reviewer_hint") or "").strip()
 
         encoded_string = pil_to_base64(screenshot)
         if "tool_call" in observation and observation["tool_call"] is not None:
@@ -264,6 +265,15 @@ class Qwen3VLAgentMCP(MCPAgent):
                 ],
             }
         )
+
+        if reviewer_hint and reviewer_hint.upper() != "OK":
+            messages[-1]["content"].insert(
+                0,
+                {
+                    "type": "text",
+                    "text": f"[Trajectory reviewer hint]\n{reviewer_hint}",
+                },
+            )
 
         pretty_print_messages(messages)
 

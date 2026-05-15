@@ -10,6 +10,7 @@ from loguru import logger
 
 from mobile_world.agents.base import BaseAgent, MCPAgent
 from mobile_world.agents.registry import create_agent
+from mobile_world.agents.reviewer import Reviewer
 from mobile_world.runtime.client import (
     AndroidEnvClient,
     AndroidMCPEnvClient,
@@ -31,6 +32,7 @@ def _execute_single_task(
     max_step: int,
     traj_logger: TrajLogger,
     enable_mcp: bool = False,
+    reviewer: Reviewer | None = None,
 ) -> tuple[int, float]:
     """Execute a single task and return the number of steps and score.
 
@@ -60,11 +62,23 @@ def _execute_single_task(
 
         logger.debug(f"Screenshot captured in step {step}")
 
+        reviewer_hint = ""
+        if reviewer is not None:
+            try:
+                reviewer_hint = reviewer.review(
+                    traj_logger.get_current_traj(include_reviewer_hint=False),
+                    task_goal=task_goal,
+                )
+            except Exception as e:
+                logger.warning(f"Reviewer call raised, continuing without hint: {e}")
+                reviewer_hint = ""
+
         prediction, action = agent.predict(
             {
                 "screenshot": obs.screenshot,
                 "tool_call": obs.tool_call,
                 "ask_user_response": obs.ask_user_response,
+                "reviewer_hint": reviewer_hint,
             }
         )  # for backward compatibility
         traj_logger.log_traj(
@@ -75,6 +89,7 @@ def _execute_single_task(
             action.model_dump(exclude_none=True),
             obs,
             agent.get_total_token_usage(),
+            reviewer_hint=reviewer_hint if reviewer is not None else None,
         )
         if prediction is None:
             logger.warning(f"Agent prediction failed in step {step}")
@@ -122,6 +137,10 @@ def _process_task_on_env(
     max_step: int,
     retry_on_device_unhealthy: int = 2,
     enable_mcp: bool = False,
+    reviewer_enabled: bool = False,
+    reviewer_model_name: str | None = None,
+    reviewer_base_url: str | None = None,
+    reviewer_api_key: str | None = None,
     **kwargs,
 ) -> dict:
     """Process a single task on a specific environment.
@@ -173,6 +192,17 @@ def _process_task_on_env(
 
             agent = create_agent(agent_type, model_name, llm_base_url, api_key, env=env, **kwargs)
 
+            reviewer = None
+            if reviewer_enabled:
+                reviewer = Reviewer(
+                    model_name=reviewer_model_name or model_name,
+                    base_url=reviewer_base_url or llm_base_url,
+                    api_key=reviewer_api_key if reviewer_api_key is not None else (api_key or "empty"),
+                )
+                logger.info(
+                    f"Reviewer enabled: model={reviewer.model_name} base_url={reviewer_base_url or llm_base_url}"
+                )
+
             task_start_time = time.time()
             while True:
                 try:
@@ -183,6 +213,7 @@ def _process_task_on_env(
                         max_step,
                         traj_logger=traj_logger,
                         enable_mcp=enable_mcp,
+                        reviewer=reviewer,
                     )
                     break
                 except Exception as e:
@@ -251,6 +282,10 @@ def run_agent_with_evaluation(
     max_concurrency: int | None = None,
     shuffle_tasks: bool = False,
     auto_retry: int = 10,
+    reviewer_enabled: bool = False,
+    reviewer_model_name: str | None = None,
+    reviewer_base_url: str | None = None,
+    reviewer_api_key: str | None = None,
     **kwargs,
 ) -> list[dict]:
     """Run the agent and return the evaluation results.
@@ -339,6 +374,10 @@ def run_agent_with_evaluation(
                     log_file_root=log_file_root,
                     max_step=max_step,
                     enable_mcp=enable_mcp,
+                    reviewer_enabled=reviewer_enabled,
+                    reviewer_model_name=reviewer_model_name,
+                    reviewer_base_url=reviewer_base_url,
+                    reviewer_api_key=reviewer_api_key,
                     **kwargs,
                 )
                 for task_name in pending_tasks

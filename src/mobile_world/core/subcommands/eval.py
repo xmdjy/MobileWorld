@@ -291,6 +291,36 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         help="Scale factor for coordinate conversion (default: 1000)",
     )
 
+    # Trajectory reviewer (look-back module)
+    parser.add_argument(
+        "--reviewer-enabled",
+        "--reviewer_enabled",
+        dest="reviewer_enabled",
+        action="store_true",
+        help="Enable the trajectory reviewer (look-back module) that injects a hint into the main agent each step",
+    )
+    parser.add_argument(
+        "--reviewer-model-name",
+        "--reviewer_model_name",
+        dest="reviewer_model_name",
+        default=None,
+        help="Model name for the reviewer (default: same as --model-name)",
+    )
+    parser.add_argument(
+        "--reviewer-base-url",
+        "--reviewer_base_url",
+        dest="reviewer_base_url",
+        default=None,
+        help="Base URL for the reviewer LLM (default: same as --llm-base-url)",
+    )
+    parser.add_argument(
+        "--reviewer-api-key",
+        "--reviewer_api_key",
+        dest="reviewer_api_key",
+        default=None,
+        help="API key for the reviewer LLM (default: same as --api-key)",
+    )
+
 
 def configure_parser(subparsers: argparse._SubParsersAction) -> None:
     """Configure the eval subcommand parser."""
@@ -388,6 +418,10 @@ async def _execute_pass_k(
             shuffle_tasks=args.shuffle_tasks,
             scale_factor=getattr(args, "scale_factor", 1000),
             auto_retry=args.auto_retry,
+            reviewer_enabled=getattr(args, "reviewer_enabled", False),
+            reviewer_model_name=getattr(args, "reviewer_model_name", None),
+            reviewer_base_url=getattr(args, "reviewer_base_url", None),
+            reviewer_api_key=getattr(args, "reviewer_api_key", None),
         )
 
         logger.info("=== Completed pass@{} run {}/{} ===", pass_k, i, pass_k)
@@ -463,6 +497,10 @@ async def execute(args: argparse.Namespace) -> None:
         shuffle_tasks=args.shuffle_tasks,
         scale_factor=getattr(args, "scale_factor", 1000),
         auto_retry=args.auto_retry,
+        reviewer_enabled=getattr(args, "reviewer_enabled", False),
+        reviewer_model_name=getattr(args, "reviewer_model_name", None),
+        reviewer_base_url=getattr(args, "reviewer_base_url", None),
+        reviewer_api_key=getattr(args, "reviewer_api_key", None),
     )
     if run_all_tasks and task_results:
         total_duration = time.time() - start_time
