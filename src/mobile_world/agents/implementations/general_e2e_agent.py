@@ -345,7 +345,7 @@ class GeneralE2EAgentMCP(MCPAgent):
             active_scale_factor = self.scale_factor
         else:
             obs_image = observation["screenshot"]
-            active_scale_factor = self.scale_factor
+            active_scale_factor = obs_image.size
         tool_call = observation.get("tool_call", None)
         ask_user_response = observation.get("ask_user_response", None)
 
