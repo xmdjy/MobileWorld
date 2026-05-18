@@ -107,7 +107,6 @@ class TrajLogger:
         action: dict,
         obs: Observation,
         token_usage: dict[str, int] = None,
-        reviewer_hint: str | None = None,
     ) -> None:
         task_id = "0"
 
@@ -117,17 +116,16 @@ class TrajLogger:
         if task_id not in log_data:
             log_data[task_id] = {"tools": self.tools, "traj": []}
 
-        step_entry = {
-            "task_goal": task_goal,
-            "step": step,
-            "prediction": prediction,
-            "action": action,
-            "ask_user_response": obs.ask_user_response,
-            "tool_call": obs.tool_call,
-        }
-        if reviewer_hint is not None:
-            step_entry["reviewer_hint"] = reviewer_hint
-        log_data[task_id]["traj"].append(step_entry)
+        log_data[task_id]["traj"].append(
+            {
+                "task_goal": task_goal,
+                "step": step,
+                "prediction": prediction,
+                "action": action,
+                "ask_user_response": obs.ask_user_response,
+                "tool_call": obs.tool_call,
+            }
+        )
         log_data[task_id]["token_usage"] = token_usage
 
         with open(os.path.join(self.log_file_dir, self.log_file_name), "w") as f:
@@ -157,28 +155,6 @@ class TrajLogger:
                 f"marked-{task_name}-{task_id}-{step}.png",
             )
             draw_drag_on_image(original_screenshot_path, marked_screenshot_path, drag_coordinates)
-
-    def get_current_traj(self, include_reviewer_hint: bool = True) -> list[dict]:
-        """Return trajectory steps logged so far.
-
-        Args:
-            include_reviewer_hint: Whether to include previous reviewer hints.
-        """
-        log_path = os.path.join(self.log_file_dir, self.log_file_name)
-        if not os.path.exists(log_path):
-            return []
-        try:
-            with open(log_path) as f:
-                log_data = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            return []
-        traj = log_data.get("0", {}).get("traj", [])
-        if include_reviewer_hint:
-            return traj
-        return [
-            {k: v for k, v in step.items() if k != "reviewer_hint"}
-            for step in traj
-        ]
 
     def log_tools(self, tools: list[dict]):
         self.tools = tools

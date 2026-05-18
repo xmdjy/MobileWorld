@@ -348,7 +348,6 @@ class GeneralE2EAgentMCP(MCPAgent):
             active_scale_factor = obs_image.size
         tool_call = observation.get("tool_call", None)
         ask_user_response = observation.get("ask_user_response", None)
-        reviewer_hint = (observation.get("reviewer_hint") or "").strip()
 
         self.history_images.append((obs_image, tool_call, ask_user_response))
 
@@ -390,15 +389,6 @@ class GeneralE2EAgentMCP(MCPAgent):
 
         logger.debug(f"Constructed {len(messages) // 2} history turns.")
         messages = self._hide_history_images(messages)
-
-        if reviewer_hint and reviewer_hint.upper() != "OK":
-            messages[-1]["content"].insert(
-                0,
-                {
-                    "type": "text",
-                    "text": f"[Trajectory reviewer hint]\n{reviewer_hint}",
-                },
-            )
 
         pretty_print_messages(messages, max_messages=10)
         logger.debug("*" * 100)
