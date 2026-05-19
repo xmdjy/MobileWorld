@@ -9,6 +9,7 @@ from joblib import Parallel, delayed
 from loguru import logger
 
 from mobile_world.agents.base import BaseAgent, MCPAgent
+from mobile_world.agents.checker import Checker, CheckerResult
 from mobile_world.agents.registry import create_agent
 from mobile_world.runtime.client import (
     AndroidEnvClient,
@@ -24,6 +25,27 @@ from mobile_world.runtime.utils.trajectory_logger import TrajLogger
 load_dotenv()
 
 
+def _should_check_finished_action(action) -> bool:
+    return action.action_type == FINISHED
+
+
+def _format_checker_constraint(checker_result: CheckerResult) -> str:
+    return (
+        "SYSTEM CONSTRAINT FROM VISUAL CHECKER:\n"
+        "Your previous attempt to stop was not visually verified.\n"
+        f"Checker reason: {checker_result.reason}\n"
+        "You must not terminate successfully until the current screenshot clearly supports "
+        "task completion. Continue acting or verifying the state."
+    )
+
+
+def _drop_last_agent_prediction_if_supported(agent) -> bool:
+    drop_fn = getattr(agent, "drop_last_prediction_from_history", None)
+    if drop_fn is None:
+        return False
+    return bool(drop_fn())
+
+
 def _execute_single_task(
     env: AndroidEnvClient,
     agent: BaseAgent,
@@ -31,6 +53,7 @@ def _execute_single_task(
     max_step: int,
     traj_logger: TrajLogger,
     enable_mcp: bool = False,
+    checker: Checker | None = None,
 ) -> tuple[int, float]:
     """Execute a single task and return the number of steps and score.
 
@@ -54,19 +77,46 @@ def _execute_single_task(
     step = 0
     obs = env.initialize_task(task_name=task_name)
     agent.initialize(task_goal)
+    pending_checker_constraint: str | None = None
 
     while True:
         step += 1
 
         logger.debug(f"Screenshot captured in step {step}")
 
-        prediction, action = agent.predict(
-            {
-                "screenshot": obs.screenshot,
-                "tool_call": obs.tool_call,
-                "ask_user_response": obs.ask_user_response,
-            }
-        )  # for backward compatibility
+        agent_observation = {
+            "screenshot": obs.screenshot,
+            "tool_call": obs.tool_call,
+            "ask_user_response": obs.ask_user_response,
+        }
+        if pending_checker_constraint:
+            agent_observation["checker_result"] = pending_checker_constraint
+            pending_checker_constraint = None
+
+        prediction, action = agent.predict(agent_observation)  # for backward compatibility
+
+        checker_result = None
+        checker_blocked_finish = False
+        if checker is not None and prediction is not None and _should_check_finished_action(action):
+            checker_result_obj = checker.check_finished(
+                task_goal=task_goal,
+                screenshot=obs.screenshot,
+                prediction=prediction,
+                action=action.model_dump(exclude_none=True),
+                step=step,
+            )
+            checker_result = checker_result_obj.model_dump()
+            checker_blocked_finish = not checker_result_obj.res
+            if checker_blocked_finish:
+                pending_checker_constraint = _format_checker_constraint(checker_result_obj)
+                dropped_history = _drop_last_agent_prediction_if_supported(agent)
+                logger.info(
+                    "Checker blocked terminal action in step {}: {} (dropped_history={})",
+                    step,
+                    checker_result_obj.reason,
+                    dropped_history,
+                )
+
         traj_logger.log_traj(
             task_name,
             task_goal,
@@ -75,6 +125,7 @@ def _execute_single_task(
             action.model_dump(exclude_none=True),
             obs,
             agent.get_total_token_usage(),
+            checker_result=checker_result,
         )
         if prediction is None:
             logger.warning(f"Agent prediction failed in step {step}")
@@ -83,7 +134,9 @@ def _execute_single_task(
         terminate = False
         logger.debug(f"current step {step}")
 
-        if action.action_type in [ENV_FAIL, FINISHED, UNKNOWN]:
+        if checker_blocked_finish:
+            logger.debug("checker blocked termination in step {}, continuing", step)
+        elif action.action_type in [ENV_FAIL, FINISHED, UNKNOWN]:
             logger.debug(f"task terminated in step {step} with action {action.action_type}")
             terminate = True
         elif action.action_type in [ANSWER]:
@@ -122,6 +175,10 @@ def _process_task_on_env(
     max_step: int,
     retry_on_device_unhealthy: int = 2,
     enable_mcp: bool = False,
+    checker_enabled: bool = False,
+    checker_model_name: str | None = None,
+    checker_base_url: str | None = None,
+    checker_api_key: str | None = None,
     **kwargs,
 ) -> dict:
     """Process a single task on a specific environment.
@@ -172,6 +229,18 @@ def _process_task_on_env(
                     return None
 
             agent = create_agent(agent_type, model_name, llm_base_url, api_key, env=env, **kwargs)
+            checker = None
+            if checker_enabled:
+                checker = Checker(
+                    model_name=checker_model_name or model_name,
+                    base_url=checker_base_url or llm_base_url,
+                    api_key=checker_api_key if checker_api_key is not None else api_key,
+                )
+                logger.info(
+                    "Checker enabled: model={} base_url={}",
+                    checker.model_name,
+                    checker_base_url or llm_base_url,
+                )
 
             task_start_time = time.time()
             while True:
@@ -183,6 +252,7 @@ def _process_task_on_env(
                         max_step,
                         traj_logger=traj_logger,
                         enable_mcp=enable_mcp,
+                        checker=checker,
                     )
                     break
                 except Exception as e:
@@ -251,6 +321,10 @@ def run_agent_with_evaluation(
     max_concurrency: int | None = None,
     shuffle_tasks: bool = False,
     auto_retry: int = 10,
+    checker_enabled: bool = False,
+    checker_model_name: str | None = None,
+    checker_base_url: str | None = None,
+    checker_api_key: str | None = None,
     **kwargs,
 ) -> list[dict]:
     """Run the agent and return the evaluation results.
@@ -339,6 +413,10 @@ def run_agent_with_evaluation(
                     log_file_root=log_file_root,
                     max_step=max_step,
                     enable_mcp=enable_mcp,
+                    checker_enabled=checker_enabled,
+                    checker_model_name=checker_model_name,
+                    checker_base_url=checker_base_url,
+                    checker_api_key=checker_api_key,
                     **kwargs,
                 )
                 for task_name in pending_tasks

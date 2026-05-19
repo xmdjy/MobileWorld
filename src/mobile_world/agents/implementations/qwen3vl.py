@@ -230,6 +230,7 @@ class Qwen3VLAgentMCP(MCPAgent):
             )
         if "ask_user_response" in observation and observation["ask_user_response"] is not None:
             self.conclusions[-1] += f"; Ask user response: {observation['ask_user_response']}"
+        checker_result = (observation.get("checker_result") or "").strip()
         steps = ""
         for idx, conclusion in enumerate(self.conclusions):
             steps += (
@@ -264,6 +265,14 @@ class Qwen3VLAgentMCP(MCPAgent):
                 ],
             }
         )
+        if checker_result:
+            messages[-1]["content"].insert(
+                0,
+                {
+                    "type": "text",
+                    "text": f"[Highest priority visual checker constraint]\n{checker_result}",
+                },
+            )
 
         pretty_print_messages(messages)
 
@@ -335,3 +344,23 @@ class Qwen3VLAgentMCP(MCPAgent):
         self.history_images = []
         self.history_responses = []
         self.conclusions = []
+
+    def drop_last_prediction_from_history(self) -> bool:
+        """Remove the latest model turn from prompt history after checker rejection."""
+        dropped = False
+        if self.history_responses:
+            self.history_responses.pop()
+            dropped = True
+        if self.thoughts:
+            self.thoughts.pop()
+            dropped = True
+        if self.conclusions:
+            self.conclusions.pop()
+            dropped = True
+        if self.actions:
+            self.actions.pop()
+            dropped = True
+        if self.history_images:
+            self.history_images.pop()
+            dropped = True
+        return dropped

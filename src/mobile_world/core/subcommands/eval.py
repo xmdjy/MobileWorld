@@ -348,6 +348,34 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
         default=1,
         help="Number of independent runs for pass@k evaluation (default: 1, standard single run)",
     )
+    eval_parser.add_argument(
+        "--checker-enabled",
+        "--checker_enabled",
+        dest="checker_enabled",
+        action="store_true",
+        help="Enable the screenshot-grounded checker for terminal actions",
+    )
+    eval_parser.add_argument(
+        "--checker-model-name",
+        "--checker_model_name",
+        dest="checker_model_name",
+        default=None,
+        help="Model name for the checker (default: same as --model-name)",
+    )
+    eval_parser.add_argument(
+        "--checker-base-url",
+        "--checker_base_url",
+        dest="checker_base_url",
+        default=None,
+        help="Base URL for the checker LLM (default: same as --llm-base-url)",
+    )
+    eval_parser.add_argument(
+        "--checker-api-key",
+        "--checker_api_key",
+        dest="checker_api_key",
+        default=None,
+        help="API key for the checker LLM (default: same as --api-key)",
+    )
 
 
 async def _execute_pass_k(
@@ -388,6 +416,10 @@ async def _execute_pass_k(
             shuffle_tasks=args.shuffle_tasks,
             scale_factor=getattr(args, "scale_factor", 1000),
             auto_retry=args.auto_retry,
+            checker_enabled=getattr(args, "checker_enabled", False),
+            checker_model_name=getattr(args, "checker_model_name", None),
+            checker_base_url=getattr(args, "checker_base_url", None),
+            checker_api_key=getattr(args, "checker_api_key", None),
         )
 
         logger.info("=== Completed pass@{} run {}/{} ===", pass_k, i, pass_k)
@@ -463,6 +495,10 @@ async def execute(args: argparse.Namespace) -> None:
         shuffle_tasks=args.shuffle_tasks,
         scale_factor=getattr(args, "scale_factor", 1000),
         auto_retry=args.auto_retry,
+        checker_enabled=getattr(args, "checker_enabled", False),
+        checker_model_name=getattr(args, "checker_model_name", None),
+        checker_base_url=getattr(args, "checker_base_url", None),
+        checker_api_key=getattr(args, "checker_api_key", None),
     )
     if run_all_tasks and task_results:
         total_duration = time.time() - start_time

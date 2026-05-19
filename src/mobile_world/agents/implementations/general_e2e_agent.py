@@ -348,6 +348,7 @@ class GeneralE2EAgentMCP(MCPAgent):
             active_scale_factor = obs_image.size
         tool_call = observation.get("tool_call", None)
         ask_user_response = observation.get("ask_user_response", None)
+        checker_result = (observation.get("checker_result") or "").strip()
 
         self.history_images.append((obs_image, tool_call, ask_user_response))
 
@@ -386,6 +387,15 @@ class GeneralE2EAgentMCP(MCPAgent):
 
             messages.append(response_message)
             messages.append(user_message)
+
+        if checker_result:
+            messages[-1]["content"].insert(
+                0,
+                {
+                    "type": "text",
+                    "text": f"[Highest priority visual checker constraint]\n{checker_result}",
+                },
+            )
 
         logger.debug(f"Constructed {len(messages) // 2} history turns.")
         messages = self._hide_history_images(messages)
@@ -456,3 +466,17 @@ class GeneralE2EAgentMCP(MCPAgent):
         self.history_responses = []
         self.actions = []
         logger.debug("Agent reset completed")
+
+    def drop_last_prediction_from_history(self) -> bool:
+        """Remove the latest model turn from prompt history after checker rejection."""
+        dropped = False
+        if self.history_responses:
+            self.history_responses.pop()
+            dropped = True
+        if self.actions:
+            self.actions.pop()
+            dropped = True
+        if self.history_images:
+            self.history_images.pop()
+            dropped = True
+        return dropped

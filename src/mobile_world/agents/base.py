@@ -53,6 +53,10 @@ class BaseAgent(ABC):
         )
         pass
 
+    def drop_last_prediction_from_history(self) -> bool:
+        """Drop the most recent prediction from agent-owned prompt history if supported."""
+        return False
+
     def build_openai_client(self, base_url: str, api_key: str) -> None:
         """Build the OpenAI client."""
         self.openai_client = OpenAI(

@@ -107,6 +107,7 @@ class TrajLogger:
         action: dict,
         obs: Observation,
         token_usage: dict[str, int] = None,
+        checker_result: dict | None = None,
     ) -> None:
         task_id = "0"
 
@@ -116,16 +117,18 @@ class TrajLogger:
         if task_id not in log_data:
             log_data[task_id] = {"tools": self.tools, "traj": []}
 
-        log_data[task_id]["traj"].append(
-            {
-                "task_goal": task_goal,
-                "step": step,
-                "prediction": prediction,
-                "action": action,
-                "ask_user_response": obs.ask_user_response,
-                "tool_call": obs.tool_call,
-            }
-        )
+        step_entry = {
+            "task_goal": task_goal,
+            "step": step,
+            "prediction": prediction,
+            "action": action,
+            "ask_user_response": obs.ask_user_response,
+            "tool_call": obs.tool_call,
+        }
+        if checker_result is not None:
+            step_entry["checker_result"] = checker_result
+
+        log_data[task_id]["traj"].append(step_entry)
         log_data[task_id]["token_usage"] = token_usage
 
         with open(os.path.join(self.log_file_dir, self.log_file_name), "w") as f:
