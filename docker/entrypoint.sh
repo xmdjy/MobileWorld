@@ -2,6 +2,21 @@
 
 set -e
 
+# Normalize HTTP proxy env vars and always exempt the emulator→host loopback
+# (10.0.2.2) and local services. Without NO_PROXY=10.0.2.2,localhost the
+# in-container backend hops (Mattermost on 8065, Mastodon, etc.) would route
+# through the user's external proxy and break.
+PROXY="${http_proxy:-${HTTP_PROXY:-}}"
+if [ -n "$PROXY" ]; then
+    export http_proxy="$PROXY"  HTTP_PROXY="$PROXY"
+    export https_proxy="${https_proxy:-${HTTPS_PROXY:-$PROXY}}"
+    export HTTPS_PROXY="$https_proxy"
+    USER_NO_PROXY="${no_proxy:-${NO_PROXY:-}}"
+    export no_proxy="10.0.2.2,127.0.0.1,localhost,::1${USER_NO_PROXY:+,$USER_NO_PROXY}"
+    export NO_PROXY="$no_proxy"
+    echo "INFO: outbound HTTP proxy = $PROXY (NO_PROXY=$NO_PROXY)"
+fi
+
 # disable ipv6 otherwise sim card will be disabled in android emulator
 # related issue: https://issuetracker.google.com/issues/215231636?pli=1
 sysctl net.ipv6.conf.all.disable_ipv6=1

@@ -13,7 +13,7 @@ Respond with EXACT JSON format for one of these actions:
 | `double_tap`         | Double-tap visible element (describe clearly)   | `{"action_type": "double_tap", "target": "blue circle button at top-right"}`   |
 | `long_press`    | Long-press visible element (describe clearly) | `{"action_type": "long_press", "target": "message from John"}`            |
 | `drag`          | Drag from visible element to another visible element (describe both clearly) | `{"action_type": "drag", "target_start": "the start point of the drag", "target_end": "the end point of the drag"}`            |
-| `input_text`    | Type into field (This action includes clicking the text field, typing, and pressing enter—no need to click the target field first.) | `{"action_type":"input_text", "text":"Hello"}|
+| `input_text`    | Type into field | `{"action_type":"input_text", "text":"Hello"}|
 | `answer`        | Respond to user                          | `{"action_type":"answer", "text":"It's 25 degrees today."}`               |
 | `navigate_home` | Return to home screen                    | `{"action_type": "navigate_home"}`                                        |
 | `navigate_back` | Navigate back                            | `{"action_type": "navigate_back"}`                                        |

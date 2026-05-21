@@ -1,7 +1,10 @@
 """Delete messages from company task implementation."""
 
+import re
+
 from loguru import logger
 
+from mobile_world.runtime.app_helpers.system import extract_sms_body
 from mobile_world.runtime.controller import AndroidController
 from mobile_world.runtime.utils.helpers import execute_adb
 from mobile_world.tasks.base import BaseTask
@@ -52,9 +55,6 @@ class DeleteMessagesAskUserTask(BaseTask):
 
         lines = result.output.strip().split("\n") if result.output else []
 
-        # Parse messages and check for both messages
-        import re
-
         found_message_to_keep = False
         found_message_to_delete = False
 
@@ -71,12 +71,8 @@ class DeleteMessagesAskUserTask(BaseTask):
 
             # Only check messages from company
             if self.company_phone in address:
-                # Extract message body
-                body_match = re.search(r"body=([^,]+?)(?:,\s*\w+=|$)", line)
-                if body_match:
-                    body = body_match.group(1).strip()
-
-                    # Check if it's the message to keep or delete
+                body = extract_sms_body(line)
+                if body:
                     if "sprint retrospective" in body.lower():
                         found_message_to_keep = True
                         logger.info(f"Found message to keep: {body[:50]}...")

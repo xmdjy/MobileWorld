@@ -75,4 +75,33 @@ else
   exit 1
 fi
 
+# Configure Android system-wide HTTP proxy if the container received one.
+#
+# The emulator can't talk to the user's external proxy directly without
+# also routing 10.0.2.2 traffic through it (Settings.Global's bypass list
+# is not honored by Chromium's net stack on this AOSP build, and the
+# emulator's -http-proxy flag has no exclusions either). We work around
+# both by chaining: an in-container proxy (proxy_chain.py) accepts the
+# emulator's HTTP CONNECT/GET, sends 10.0.2.x/127.* directly, and only
+# forwards external destinations to the user-supplied proxy.
+if [ -n "${HTTP_PROXY:-${http_proxy:-}}" ]; then
+    UPSTREAM="${HTTP_PROXY:-$http_proxy}"
+    LOCAL_PROXY_PORT="${LOCAL_PROXY_PORT:-38888}"
+
+    # Launch the chain proxy. It logs to /var/log/proxy_chain.log and is
+    # left as a non-supervised background process; the emulator-side
+    # config below will fail loudly via Chrome if it ever dies.
+    UPSTREAM_PROXY="$UPSTREAM" LOCAL_PORT="$LOCAL_PROXY_PORT" \
+        nohup /usr/bin/python3 /app/docker/proxy_chain.py \
+        > /var/log/proxy_chain.log 2>&1 &
+    sleep 1
+
+    # Point the emulator at the chain proxy. From the emulator's view the
+    # container's loopback is 10.0.2.2.
+    adb shell settings put global http_proxy "10.0.2.2:${LOCAL_PROXY_PORT}"
+    adb shell settings put global global_http_proxy_host "10.0.2.2"
+    adb shell settings put global global_http_proxy_port "$LOCAL_PROXY_PORT"
+    echo "INFO: Android proxy → 10.0.2.2:${LOCAL_PROXY_PORT} (chain → ${UPSTREAM})"
+fi
+
 adb root

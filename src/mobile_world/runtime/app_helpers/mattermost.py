@@ -476,10 +476,19 @@ def get_users_in_channel(channel_id: str):
 
 
 def _patch_mattermost_config():
-    """Patch Mattermost config.json to disable session expiry and idle timeout.
+    """Patch Mattermost config.json to disable session expiry and idle timeout,
+    and to allow WebSocket connections from the Android emulator.
 
     Called after copying the backup but before docker compose up, so Mattermost
     starts with session settings that effectively never expire.
+
+    The Android Mattermost app connects to ws://10.0.2.2:8065/api/v4/websocket
+    and sends Origin: http://10.0.2.2:8065. Mattermost's WebSocket upgrader
+    rejects the upgrade with HTTP 400 ("URL Blocked because of CORS") unless
+    the Origin matches SiteURL or AllowCorsFrom. The shipped config has both
+    empty, so the upgrade fails and the app shows "The server is not reachable"
+    and never receives live updates (e.g. channels created during init by
+    mmctl). Pinning SiteURL/AllowCorsFrom here unblocks the upgrade.
     """
     config_path = os.path.join(
         MATTERMOST_DOCKER_DIR, "volumes", "app", "mattermost", "config", "config.json"
@@ -497,11 +506,16 @@ def _patch_mattermost_config():
         svc["SessionLengthSSOInHours"] = 876000
         svc["SessionIdleTimeoutInMinutes"] = 0
         svc["ExtendSessionLengthWithActivity"] = True
+        svc["SiteURL"] = "http://10.0.2.2:8065"
+        svc["AllowCorsFrom"] = "*"
 
         with open(config_path, "w") as f:
             json.dump(config, f, indent=4)
 
-        logger.info("Patched Mattermost config: sessions set to never expire")
+        logger.info(
+            "Patched Mattermost config: sessions never expire; "
+            "SiteURL/AllowCorsFrom set for emulator WebSocket"
+        )
     except Exception as e:
         logger.warning(f"Failed to patch Mattermost config (non-fatal): {e}")
 

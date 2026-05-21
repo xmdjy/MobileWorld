@@ -8,6 +8,20 @@
     <meta name="description"
         content="MobileWorld: Benchmarking Autonomous Mobile Agents in Agent-User Interactive and MCP-Augmented Environments">
     <meta name="keywords" content="Mobile Agent, GUI Agent, Android, Benchmark, MCP">
+    <link rel="canonical" href="https://tongyi-mai.github.io/MobileWorld/">
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tongyi-mai.github.io/MobileWorld/">
+    <meta property="og:title" content="MobileWorld: Benchmarking Autonomous Mobile Agents">
+    <meta property="og:description" content="MobileWorld: Benchmarking Autonomous Mobile Agents in Agent-User Interactive and MCP-Augmented Environments">
+    <meta property="og:image" content="https://tongyi-mai.github.io/MobileWorld/assets/banner_poster.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="MobileWorld: Benchmarking Autonomous Mobile Agents">
+    <meta name="twitter:description" content="MobileWorld: Benchmarking Autonomous Mobile Agents in Agent-User Interactive and MCP-Augmented Environments">
+    <meta name="twitter:image" content="https://tongyi-mai.github.io/MobileWorld/assets/banner_poster.jpg">
+
+    <meta name="google-site-verification" content="kjMZV7GMfaOB_viMzX709NKwCzkU50OnzUs5dDBHoO0">
 
     <!-- Bulma CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
@@ -44,7 +58,9 @@
         <div class="navbar-menu" id="navbar-menu">
             <div class="navbar-start">
                 <a class="navbar-item" href="#leaderboard">Leaderboard</a>
+                <a class="navbar-item" href="arena">Arena</a>
                 <a class="navbar-item" href="#overview">Overview</a>
+                <a class="navbar-item" href="blog.html">Blog</a>
             </div>
             <div class="navbar-end">
                 <div class="navbar-item">
@@ -172,29 +188,27 @@
         <!-- Leaderboard -->
         <section id="leaderboard" class="section">
             <h2 class="title is-3">Leaderboard</h2>
-            <p class="lb-desc">Success rate (%) on MobileWorld, weighted by task counts across GUI-Only (117), User-Interaction (44), and MCP (40) tasks. All results evaluated with max steps&nbsp;=&nbsp;50. <a
-                        href="mailto:kongquyu.kqy@alibaba-inc.com">Submit your results&nbsp;&rarr;</a></p>
+            <p class="lb-desc">Success rate (%) on MobileWorld, weighted by task counts across GUI-Only (117),
+                User-Interaction (44), and MCP (40) tasks. All results evaluated with max steps = 50. <a href="#"
+                    id="submit-results-link">Submit your results&nbsp;&rarr;</a></p>
+            <p class="lb-desc">🔥 <strong>New:</strong> <a href="arena">Arena</a> &mdash; compare agent trajectories
+                side-by-side on the same task to see why one agent succeeds where another fails.</p>
 
             <!-- Filters -->
             <div class="lb-filters">
-                <div class="lb-filter-group">
+                <div class="lb-filter-group lb-toggle-group" data-group="type">
                     <span class="lb-filter-label">Type</span>
-                    <div class="lb-select-wrap">
-                        <select id="filter-model-type">
-                            <option value="all">All</option>
-                            <option value="Agentic Framework">Agentic</option>
-                            <option value="End-to-End Model">End-to-End</option>
-                        </select>
-                    </div>
+                    <button class="lb-toggle" data-value="agentic">Agentic</button>
+                    <button class="lb-toggle is-active" data-value="general">General</button>
+                    <button class="lb-toggle is-active" data-value="specialized">Specialized</button>
                 </div>
                 <span class="lb-filter-sep"></span>
-                <div class="lb-filter-group">
+                <div class="lb-filter-group lb-toggle-group" data-group="tasks">
                     <span class="lb-filter-label">Tasks</span>
-                    <label class="lb-chip"><input type="checkbox" id="filter-gui-only" checked><span>GUI-Only</span></label>
-                    <label class="lb-chip"><input type="checkbox" id="filter-user-int" checked><span>User-Int.</span></label>
-                    <label class="lb-chip"><input type="checkbox" id="filter-mcp" checked><span>MCP</span></label>
+                    <button class="lb-toggle is-active" data-value="gui-only">GUI-Only</button>
+                    <button class="lb-toggle" data-value="user-int">User-Int.</button>
+                    <button class="lb-toggle" data-value="mcp">MCP</button>
                 </div>
-                <button class="lb-clear" id="clear-filters">Reset</button>
             </div>
 
             <!-- Leaderboard Table -->
@@ -203,24 +217,22 @@
                     <thead>
                         <tr>
                             <th style="width:42px;">#</th>
-                            <th style="width:80px;">Type</th>
+                            <th style="width:90px;">Type</th>
                             <th>Model</th>
-                            <th id="th-overall" class="has-text-centered sortable-header"
-                                data-sort="overall">
+                            <th id="th-overall" class="has-text-centered sortable-header" data-sort="overall">
                                 Overall <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th id="th-gui-only" class="has-text-centered sortable-header"
-                                data-sort="gui_only">
+                            <th id="th-gui-only" class="has-text-centered sortable-header" data-sort="gui_only">
                                 GUI-Only <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th id="th-user-int" class="has-text-centered sortable-header"
-                                data-sort="user_int">
+                            <th id="th-user-int" class="has-text-centered sortable-header" data-sort="user_int">
                                 User-Int. <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th id="th-mcp" class="has-text-centered sortable-header"
-                                data-sort="mcp">
+                            <th id="th-mcp" class="has-text-centered sortable-header" data-sort="mcp">
                                 MCP <i class="fas fa-sort sort-icon"></i>
                             </th>
+                            <th class="has-text-centered" style="width:56px;">Traj.</th>
+                            <th class="has-text-centered" style="width:56px;">Arena</th>
                         </tr>
                     </thead>
                     <tbody id="leaderboard-body">
@@ -229,6 +241,7 @@
                 </table>
             </div>
         </section>
+
 
         <!-- Overview -->
         <section id="overview" class="section">
@@ -507,13 +520,62 @@
                         <select id="traj-task-select"></select>
                     </div>
                     <span class="traj-result" id="traj-result-badge"></span>
+                    <button type="button" class="traj-expand-all" id="traj-expand-all" style="display:none">Expand
+                        all</button>
                 </div>
             </div>
             <div class="traj-body" id="traj-body">
                 <div class="traj-loading" id="traj-loading">
-                    <i class="fas fa-spinner fa-spin"></i> Loading trajectories&hellip;
+                    <div><i class="fas fa-spinner fa-spin"></i> <span id="traj-loading-text">Loading
+                            trajectories&hellip;</span></div>
+                    <div class="traj-progress-wrap" id="traj-progress-wrap" style="display:none">
+                        <div class="traj-progress-bar" id="traj-progress-bar"></div>
+                    </div>
                 </div>
                 <div class="traj-steps" id="traj-steps"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submission Instructions Modal -->
+    <div class="modal" id="submit-modal">
+        <div class="modal-background"></div>
+        <div class="dm submit-dm" role="dialog" aria-labelledby="submit-modal-title">
+            <button class="dm-close" aria-label="close" id="submit-modal-close">&times;</button>
+            <div class="submit-dm-header">
+                <h2 class="dm-title" id="submit-modal-title">Submit Your Results</h2>
+                <p class="submit-intro">To appear on the MobileWorld leaderboard, complete the steps below.</p>
+            </div>
+            <div class="submit-dm-body">
+                <div class="submit-step">
+                    <div class="submit-step-num">1</div>
+                    <div class="submit-step-body">
+                        <strong>Run evaluation</strong>
+                        <pre><code>uv run mw eval --agent &lt;your_agent_module&gt; --tasks all</code></pre>
+                        <p>Trajectory logs are written to <code>traj_logs/&lt;run-name&gt;/</code>.</p>
+                    </div>
+                </div>
+                <div class="submit-step">
+                    <div class="submit-step-num">2</div>
+                    <div class="submit-step-body">
+                        <strong>Bundle trajectories with <code>bundle_trajs.py</code></strong>
+                        <pre><code>python site/bundle_trajs.py traj_logs/&lt;run-name&gt;/ --with-screenshots</code></pre>
+                        <p>Produces <code>site/trajs/&lt;run-name&gt;.json.gz</code> and <code>.mp4</code>.</p>
+                    </div>
+                </div>
+                <div class="submit-step">
+                    <div class="submit-step-num">3</div>
+                    <div class="submit-step-body">
+                        <strong>Send your results</strong>
+                        <p>Email the files below to <a
+                                href="mailto:kongquyu.kqy@alibaba-inc.com">kongquyu.kqy@alibaba-inc.com</a> along
+                            with your model / system name and any paper or report links.</p>
+                        <ul>
+                            <li><code>&lt;run-name&gt;.json.gz</code></li>
+                            <li><code>&lt;run-name&gt;.mp4</code></li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -594,12 +656,46 @@
         // Leaderboard functionality
         document.addEventListener('DOMContentLoaded', async function () {
             const tbody = document.getElementById('leaderboard-body');
-            const filterModelType = document.getElementById('filter-model-type');
-            // const filterSteps = document.getElementById('filter-steps');  // Max Steps filter hidden
-            const filterGuiOnly = document.getElementById('filter-gui-only');
-            const filterUserInt = document.getElementById('filter-user-int');
-            const filterMcp = document.getElementById('filter-mcp');
-            const clearFiltersBtn = document.getElementById('clear-filters');
+
+            // Toggle-group filter state
+            const filterState = {
+                type: new Set(['general', 'specialized']),
+                tasks: new Set(['gui-only']),
+            };
+
+            function isTypeActive(t) { return filterState.type.has(t); }
+            function isTaskActive(t) { return filterState.tasks.has(t); }
+
+            document.querySelectorAll('.lb-toggle-group').forEach(group => {
+                const groupName = group.dataset.group;
+                group.querySelectorAll('.lb-toggle').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const val = btn.dataset.value;
+                        const state = filterState[groupName];
+                        if (state.has(val)) {
+                            state.delete(val);
+                        } else {
+                            state.add(val);
+                        }
+                        syncToggleUI(group, groupName);
+                        handleFilterChange(groupName);
+                    });
+                });
+            });
+
+            function syncToggleUI(group, groupName) {
+                const state = filterState[groupName];
+                group.querySelectorAll('.lb-toggle').forEach(btn => {
+                    btn.classList.toggle('is-active', state.has(btn.dataset.value));
+                });
+            }
+
+            // Visual styling per category (sourced from leaderboard.json `category`).
+            const CATEGORY_BADGE_CLASS = {
+                'Agentic': 'tag is-info is-light',
+                'General': 'tag is-link is-light',
+                'Specialized': 'tag is-warning is-light',
+            };
 
             let leaderboardData = [];
             let filteredData = [];
@@ -613,11 +709,10 @@
                 leaderboardData = data.results;
                 taskCounts = data.task_counts || taskCounts;
                 filteredData = [...leaderboardData];
-                updateCheckboxStates();
                 updateTableHeader();
                 renderTable();
             } catch (error) {
-                tbody.innerHTML = '<tr><td colspan="7" class="has-text-centered">Failed to load leaderboard data.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="has-text-centered">Failed to load leaderboard data.</td></tr>';
                 console.error('Error loading leaderboard:', error);
             }
 
@@ -647,59 +742,31 @@
                 });
             }
 
-            // Filter handlers
-            filterModelType.addEventListener('change', applyFilters);
-            // filterSteps.addEventListener('change', applyFilters);  // Max Steps filter hidden
-            filterGuiOnly.addEventListener('change', handleCategoryChange);
-            filterUserInt.addEventListener('change', handleCategoryChange);
-            filterMcp.addEventListener('change', handleCategoryChange);
-            clearFiltersBtn.addEventListener('click', () => {
-                filterModelType.value = 'all';
-                // filterSteps.value = 'all';  // Max Steps filter hidden
-                filterGuiOnly.checked = true;
-                filterUserInt.checked = true;
-                filterMcp.checked = true;
-                currentSort = { key: 'overall', dir: 'desc' };
-                updateSortIcons();
-                updateCheckboxStates();
-                applyFilters();
-            });
+            function handleFilterChange(groupName) {
+                if (groupName === 'tasks') {
+                    const guiOn = isTaskActive('gui-only');
+                    const userOn = isTaskActive('user-int');
+                    const mcpOn = isTaskActive('mcp');
+                    const checkedCount = [guiOn, userOn, mcpOn].filter(Boolean).length;
 
-            // Handle category checkbox changes
-            function handleCategoryChange() {
-                updateCheckboxStates();
-                const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
-
-                // Reset sort to overall if current sort column is being hidden
-                if ((currentSort.key === 'gui_only' && !filterGuiOnly.checked) ||
-                    (currentSort.key === 'user_int' && !filterUserInt.checked) ||
-                    (currentSort.key === 'mcp' && !filterMcp.checked)) {
-                    currentSort = { key: 'overall', dir: 'desc' };
-                    updateSortIcons();
-                }
-                // If only one category selected, switch to that category
-                if (checkedCount === 1) {
-                    if (filterGuiOnly.checked) currentSort.key = 'gui_only';
-                    else if (filterUserInt.checked) currentSort.key = 'user_int';
-                    else if (filterMcp.checked) currentSort.key = 'mcp';
-                    updateSortIcons();
-                }
-                // If multiple categories selected and currently sorting by a single category column, switch to overall
-                if (checkedCount > 1 && ['gui_only', 'user_int', 'mcp'].includes(currentSort.key)) {
-                    currentSort = { key: 'overall', dir: 'desc' };
-                    updateSortIcons();
+                    if ((currentSort.key === 'gui_only' && !guiOn) ||
+                        (currentSort.key === 'user_int' && !userOn) ||
+                        (currentSort.key === 'mcp' && !mcpOn)) {
+                        currentSort = { key: 'overall', dir: 'desc' };
+                        updateSortIcons();
+                    }
+                    if (checkedCount === 1) {
+                        if (guiOn) currentSort.key = 'gui_only';
+                        else if (userOn) currentSort.key = 'user_int';
+                        else if (mcpOn) currentSort.key = 'mcp';
+                        updateSortIcons();
+                    }
+                    if (checkedCount > 1 && ['gui_only', 'user_int', 'mcp'].includes(currentSort.key)) {
+                        currentSort = { key: 'overall', dir: 'desc' };
+                        updateSortIcons();
+                    }
                 }
                 applyFilters();
-            }
-
-            // Update checkbox disabled states - prevent deselecting last one
-            function updateCheckboxStates() {
-                const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
-
-                // If only one is checked, disable it to prevent unchecking
-                filterGuiOnly.disabled = checkedCount === 1 && filterGuiOnly.checked;
-                filterUserInt.disabled = checkedCount === 1 && filterUserInt.checked;
-                filterMcp.disabled = checkedCount === 1 && filterMcp.checked;
             }
 
             // Update table header with task counts
@@ -709,11 +776,10 @@
                 const thUserInt = document.getElementById('th-user-int');
                 const thMcp = document.getElementById('th-mcp');
 
-                // Calculate dynamic overall task count based on selected filters
                 let overallCount = 0;
-                if (filterGuiOnly.checked) overallCount += taskCounts['GUI-Only'];
-                if (filterUserInt.checked) overallCount += taskCounts['User-Int.'];
-                if (filterMcp.checked) overallCount += taskCounts['MCP'];
+                if (isTaskActive('gui-only')) overallCount += taskCounts['GUI-Only'];
+                if (isTaskActive('user-int')) overallCount += taskCounts['User-Int.'];
+                if (isTaskActive('mcp')) overallCount += taskCounts['MCP'];
 
                 thOverall.innerHTML = `Overall <span class="task-count">(${overallCount})</span> <i class="fas fa-sort sort-icon"></i>`;
                 thGuiOnly.innerHTML = `GUI-Only <span class="task-count">(${taskCounts['GUI-Only']})</span> <i class="fas fa-sort sort-icon"></i>`;
@@ -721,23 +787,23 @@
                 thMcp.innerHTML = `MCP <span class="task-count">(${taskCounts['MCP']})</span> <i class="fas fa-sort sort-icon"></i>`;
             }
 
-            // Update column visibility in table header
             function updateColumnVisibility() {
-                const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
+                const guiOn = isTaskActive('gui-only');
+                const userOn = isTaskActive('user-int');
+                const mcpOn = isTaskActive('mcp');
+                const checkedCount = [guiOn, userOn, mcpOn].filter(Boolean).length;
                 const showOverall = checkedCount > 1;
 
                 document.getElementById('th-overall').style.display = showOverall ? '' : 'none';
-                document.getElementById('th-gui-only').style.display = filterGuiOnly.checked ? '' : 'none';
-                document.getElementById('th-user-int').style.display = filterUserInt.checked ? '' : 'none';
-                document.getElementById('th-mcp').style.display = filterMcp.checked ? '' : 'none';
+                document.getElementById('th-gui-only').style.display = guiOn ? '' : 'none';
+                document.getElementById('th-user-int').style.display = userOn ? '' : 'none';
+                document.getElementById('th-mcp').style.display = mcpOn ? '' : 'none';
             }
 
-            // Calculate weighted score based on selected task categories and task counts
-            // Treat null values as 0 SR
             function getFilteredScore(row) {
-                const includeGui = filterGuiOnly.checked;
-                const includeUser = filterUserInt.checked;
-                const includeMcp = filterMcp.checked;
+                const includeGui = isTaskActive('gui-only');
+                const includeUser = isTaskActive('user-int');
+                const includeMcp = isTaskActive('mcp');
 
                 let weightedSum = 0;
                 let totalWeight = 0;
@@ -763,21 +829,23 @@
             }
 
             function applyFilters() {
-                const includeGui = filterGuiOnly.checked;
-                const includeUser = filterUserInt.checked;
-                const includeMcp = filterMcp.checked;
+                const includeGui = isTaskActive('gui-only');
+                const includeUser = isTaskActive('user-int');
+                const includeMcp = isTaskActive('mcp');
+                const typeAllowed = {
+                    'Agentic': isTypeActive('agentic'),
+                    'General': isTypeActive('general'),
+                    'Specialized': isTypeActive('specialized'),
+                };
 
                 filteredData = leaderboardData.filter(row => {
-                    const modelTypeMatch = filterModelType.value === 'all' || row.model_type === filterModelType.value;
-                    // const stepsMatch = filterSteps.value === 'all' || row.max_steps === parseInt(filterSteps.value);  // Max Steps filter hidden
-
-                    // Filter out rows that have no data for any selected category
+                    const typeMatch = !!typeAllowed[row.category];
                     const hasSelectedData =
                         (includeGui && row.gui_only !== null) ||
                         (includeUser && row.user_int !== null) ||
                         (includeMcp && row.mcp !== null);
 
-                    return modelTypeMatch && hasSelectedData;  // && stepsMatch
+                    return typeMatch && hasSelectedData;
                 });
                 updateTableHeader();
                 renderTable();
@@ -790,7 +858,10 @@
             }
 
             function renderTable() {
-                const checkedCount = [filterGuiOnly.checked, filterUserInt.checked, filterMcp.checked].filter(Boolean).length;
+                const guiOn = isTaskActive('gui-only');
+                const userOn = isTaskActive('user-int');
+                const mcpOn = isTaskActive('mcp');
+                const checkedCount = [guiOn, userOn, mcpOn].filter(Boolean).length;
                 const showOverall = checkedCount > 1;
 
                 // Update column visibility in header
@@ -821,19 +892,11 @@
                     const rowClass = isFirst ? 'first-rank-row' : '';
                     const starIcon = isFirst ? ' ⭐' : '';
 
-                    // Create clickable model name with link
-                    let modelName = row.model;
-                    if (row.link && row.link !== '#') {
-                        let href = row.link;
-                        if (!href.startsWith('http://') && !href.startsWith('https://')) {
-                            href = 'https://' + href;
-                        }
-                        modelName = `<a href="${href}" class="model-link" target="_blank" rel="noopener noreferrer">${row.model}</a>`;
-                    }
+                    const modelName = row.model;
 
-                    // Category badge class
-                    const categoryClass = row.model_type === 'Agentic Framework' ? 'tag is-info is-light' : 'tag is-link is-light';
-                    const categoryLabel = row.model_type === 'Agentic Framework' ? 'Agentic' : 'End-to-End';
+                    // Category badge class — driven by leaderboard.json `category`
+                    const categoryClass = CATEGORY_BADGE_CLASS[row.category] || 'tag is-light';
+                    const categoryLabel = row.category;
 
                     // Calculate display score for Overall column (always computed dynamically)
                     const overallScore = getFilteredScore(row);
@@ -842,40 +905,45 @@
                     // Build cells based on which columns are visible
                     const overallCell = showOverall ?
                         `<td class="has-text-centered"><strong class="overall-score">${overallDisplay}</strong></td>` : '';
-                    const guiCell = filterGuiOnly.checked ?
+                    const guiCell = guiOn ?
                         `<td class="has-text-centered">${row.gui_only !== null ? row.gui_only : '-'}</td>` : '';
-                    const userCell = filterUserInt.checked ?
+                    const userCell = userOn ?
                         `<td class="has-text-centered">${row.user_int !== null ? row.user_int : '-'}</td>` : '';
-                    const mcpCell = filterMcp.checked ?
+                    const mcpCell = mcpOn ?
                         `<td class="has-text-centered">${row.mcp !== null ? row.mcp : '-'}</td>` : '';
+
+                    const trajCell = row.traj_file
+                        ? `<td class="has-text-centered"><button class="traj-btn" data-traj-file="${row.traj_file}" data-model="${row.model}" title="View trajectories"><i class="fas fa-route"></i></button></td>`
+                        : `<td></td>`;
+                    const arenaCell = row.traj_file
+                        ? `<td class="has-text-centered"><a class="arena-link-btn" href="arena?model=${encodeURIComponent(row.model)}" title="Compare in Arena"><i class="fas fa-scale-balanced"></i></a></td>`
+                        : `<td></td>`;
 
                     return `
                         <tr class="${rowClass}">
                             <td class="has-text-centered"><strong>${rank}</strong></td>
                             <td><span class="category-badge ${categoryClass}">${categoryLabel}</span></td>
                             <td class="model-cell">
-                                <div class="model-name"><strong>${modelName}</strong>
-                                    <button class="detail-btn" data-index="${sorted.indexOf(row)}" title="View details">
-                                        <i class="fas fa-info-circle"></i>
-                                    </button>${row.traj_file ? `<button class="traj-btn" data-traj-file="${row.traj_file}" data-model="${row.model}" title="View trajectories"><i class="fas fa-route"></i></button>` : ''}
-                                </div>
+                                <div class="model-name"><strong><a href="#" class="model-name-link" data-index="${sorted.indexOf(row)}">${modelName}</a></strong></div>
                                 <div class="model-org">${row.organization}</div>
                                 <div class="model-date"><i class="far fa-calendar"></i> ${formatDate(row.date)}</div>
                             </td>
-                            <!-- <td class="has-text-centered">${row.max_steps}</td> -->
                             ${overallCell}
                             ${guiCell}
                             ${userCell}
                             ${mcpCell}
+                            ${trajCell}
+                            ${arenaCell}
                         </tr>
                     `;
                 }).join('');
 
-                // Attach detail button click handlers
-                tbody.querySelectorAll('.detail-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
+                // Attach model name click handlers
+                tbody.querySelectorAll('.model-name-link').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
                         e.stopPropagation();
-                        const idx = parseInt(btn.dataset.index);
+                        const idx = parseInt(link.dataset.index);
                         const row = sorted[idx];
                         openDetailModal(row);
                     });
@@ -919,7 +987,7 @@
             function openDetailModal(row) {
                 const overallScore = getFilteredScore(row);
                 const na = '<span class="dm-empty">—</span>';
-                const categoryLabel = row.model_type === 'Agentic Framework' ? 'Agentic' : 'End-to-End';
+                const categoryLabel = row.category;
 
                 modalHeader.innerHTML = `
                     <span class="dm-pill">${categoryLabel}</span>
@@ -982,9 +1050,14 @@
                     </dl>
                     ${row.traj_file ? `
                     <hr class="dm-hr">
-                    <button class="traj-open-btn" data-traj-file="${row.traj_file}" data-model="${row.model}">
-                        <i class="fas fa-route"></i> View Trajectories
-                    </button>` : ''}
+                    <div class="dm-actions">
+                        <button class="traj-open-btn" data-traj-file="${row.traj_file}" data-model="${row.model}">
+                            <i class="fas fa-route"></i> View Trajectories
+                        </button>
+                        <a class="traj-open-btn" href="arena?model=${encodeURIComponent(row.model)}">
+                            <i class="fas fa-scale-balanced"></i> Compare in Arena
+                        </a>
+                    </div>` : ''}
                 `;
                 modal.classList.add('is-active');
 
@@ -1006,9 +1079,19 @@
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     if (trajModal.classList.contains('is-active')) closeTrajModal();
+                    else if (submitModal.classList.contains('is-active')) submitModal.classList.remove('is-active');
                     else closeDetailModal();
                 }
             });
+
+            // ── Submission modal ──
+            const submitModal = document.getElementById('submit-modal');
+            document.getElementById('submit-results-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                submitModal.classList.add('is-active');
+            });
+            document.getElementById('submit-modal-close').addEventListener('click', () => submitModal.classList.remove('is-active'));
+            submitModal.querySelector('.modal-background').addEventListener('click', () => submitModal.classList.remove('is-active'));
 
             // ── Trajectory Viewer ──
             const trajModal = document.getElementById('traj-modal');
@@ -1022,11 +1105,23 @@
 
             const trajCache = {};
 
-            async function fetchGzipJson(url) {
+            async function fetchGzipJson(url, onProgress) {
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const total = parseInt(resp.headers.get('content-length') || '0', 10);
+                let loaded = 0;
+                const rawChunks = [];
+                const rawReader = resp.body.getReader();
+                while (true) {
+                    const { done, value } = await rawReader.read();
+                    if (done) break;
+                    rawChunks.push(value);
+                    loaded += value.byteLength;
+                    if (onProgress && total) onProgress(loaded / total);
+                }
+                const rawBlob = new Blob(rawChunks);
                 const ds = new DecompressionStream('gzip');
-                const decompressed = resp.body.pipeThrough(ds);
+                const decompressed = rawBlob.stream().pipeThrough(ds);
                 const reader = decompressed.getReader();
                 const chunks = [];
                 while (true) {
@@ -1039,29 +1134,166 @@
                 return JSON.parse(text);
             }
 
+            // ── Screenshot video utilities ──
+            // Point the <video> at the URL directly so frame seeks issue
+            // range requests for just that frame's bytes (mp4 is +faststart),
+            // letting screenshots render as soon as their bytes arrive instead
+            // of waiting for the whole file to download.
+            const videoCache = {};
+
+            function loadVideo(url) {
+                if (videoCache[url]) return videoCache[url];
+                const promise = (async () => {
+                    const video = document.createElement('video');
+                    video.preload = 'auto';
+                    video.muted = true;
+                    video.playsInline = true;
+                    video.src = url;
+                    await new Promise((res, rej) => {
+                        video.addEventListener('loadedmetadata', res, { once: true });
+                        video.addEventListener('error', rej, { once: true });
+                    });
+                    return video;
+                })();
+                videoCache[url] = promise;
+                return promise;
+            }
+
+            function extractFrame(video, frameIndex, fps) {
+                return new Promise((resolve) => {
+                    const targetTime = (frameIndex + 0.25) / fps;
+                    if (Math.abs(video.currentTime - targetTime) < 0.01) {
+                        resolve(video);
+                        return;
+                    }
+                    video.addEventListener('seeked', () => resolve(video), { once: true });
+                    video.currentTime = targetTime;
+                });
+            }
+
+            function drawActionOverlay(ctx, action, scaleX, scaleY) {
+                const actionType = action.action_type;
+                if (['click', 'double_tap', 'long_press'].includes(actionType)) {
+                    const x = action.x * scaleX;
+                    const y = action.y * scaleY;
+                    const r = 16 * scaleX;
+                    ctx.beginPath();
+                    ctx.arc(x, y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else if (actionType === 'drag') {
+                    const sx = action.start_x * scaleX, sy = action.start_y * scaleY;
+                    const ex = action.end_x * scaleX, ey = action.end_y * scaleY;
+                    if (sx != null && sy != null && ex != null && ey != null) {
+                        ctx.beginPath();
+                        ctx.moveTo(sx, sy);
+                        ctx.lineTo(ex, ey);
+                        ctx.strokeStyle = 'rgba(0, 100, 255, 0.7)';
+                        ctx.lineWidth = 3 * scaleX;
+                        ctx.stroke();
+                        const r = 12 * scaleX;
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(0, 180, 0, 0.6)';
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(ex, ey, r, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
+                        ctx.fill();
+                    }
+                }
+            }
+
+            async function renderScreenshotCanvas(canvas, video, frameIndex, fps, meta, action) {
+                await extractFrame(video, frameIndex, fps);
+                const dw = meta.display_width;
+                const dh = meta.display_height;
+                canvas.width = dw;
+                canvas.height = dh;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, dw, dh);
+                if (action) {
+                    const scaleX = dw / meta.original_width;
+                    const scaleY = dh / meta.original_height;
+                    drawActionOverlay(ctx, action, scaleX, scaleY);
+                }
+            }
+
+            const trajExpandAllBtn = document.getElementById('traj-expand-all');
+            function updateExpandAllLabel() {
+                const blocks = trajSteps.querySelectorAll('.traj-screenshot-block');
+                if (blocks.length === 0) {
+                    trajExpandAllBtn.style.display = 'none';
+                    return;
+                }
+                trajExpandAllBtn.style.display = '';
+                const allOpen = [...blocks].every(b => b.open);
+                trajExpandAllBtn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+            }
+            trajExpandAllBtn.addEventListener('click', () => {
+                const blocks = trajSteps.querySelectorAll('.traj-screenshot-block');
+                if (blocks.length === 0) return;
+                const allOpen = [...blocks].every(b => b.open);
+                blocks.forEach(b => { b.open = !allOpen; });
+                updateExpandAllLabel();
+            });
+            trajSteps.addEventListener('toggle', (e) => {
+                if (e.target.classList?.contains('traj-screenshot-block')) updateExpandAllLabel();
+            }, true);
+
             async function openTrajModal(trajFile, modelName) {
                 trajModelName.textContent = modelName + ' — Trajectories';
                 trajTaskSelect.innerHTML = '';
                 trajSteps.innerHTML = '';
                 trajResultBadge.textContent = '';
+                trajExpandAllBtn.style.display = 'none';
                 trajLoading.style.display = 'flex';
                 trajModal.classList.add('is-active');
+
+                const loadingText = document.getElementById('traj-loading-text');
+                const progressWrap = document.getElementById('traj-progress-wrap');
+                const progressBar = document.getElementById('traj-progress-bar');
+                loadingText.textContent = 'Loading trajectories…';
+                progressWrap.style.display = 'none';
+                progressBar.style.width = '0%';
 
                 let data;
                 if (trajCache[trajFile]) {
                     data = trajCache[trajFile];
                 } else {
                     try {
-                        data = await fetchGzipJson(trajFile);
+                        progressWrap.style.display = '';
+                        loadingText.textContent = 'Downloading trajectory data…';
+                        data = await fetchGzipJson(trajFile, (pct) => {
+                            progressBar.style.width = (pct * 100).toFixed(1) + '%';
+                        });
                         trajCache[trajFile] = data;
                     } catch (err) {
                         trajLoading.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Failed to load: ${err.message}`;
                         return;
                     }
                 }
+
                 trajLoading.style.display = 'none';
 
-                const taskNames = Object.keys(data).sort();
+                const meta = data._meta || null;
+                let videoPromise = null;
+                if (meta && meta.video_file) {
+                    const videoUrl = meta.video_file.startsWith('http')
+                        ? meta.video_file
+                        : trajFile.replace(/[^/]+$/, '') + meta.video_file;
+                    videoPromise = loadVideo(videoUrl).catch(e => {
+                        console.warn('Video load failed:', e);
+                        return null;
+                    });
+                }
+
+                let renderGeneration = 0;
+
+                const taskNames = Object.keys(data).filter(k => k !== '_meta').sort();
                 taskNames.forEach(name => {
                     const opt = document.createElement('option');
                     opt.value = name;
@@ -1073,7 +1305,6 @@
                     const task = data[taskName];
                     if (!task) return;
 
-                    // Result badge
                     if (task.result) {
                         const scoreMatch = task.result.match(/score:\s*([\d.]+)/);
                         const score = scoreMatch ? parseFloat(scoreMatch[1]) : null;
@@ -1087,7 +1318,7 @@
                     const steps = task.traj || [];
                     const taskGoal = steps.length > 0 && steps[0].task_goal
                         ? `<div class="traj-goal"><span class="traj-goal-label">Task Goal</span>${escHtml(steps[0].task_goal)}</div>` : '';
-                    trajSteps.innerHTML = taskGoal + steps.map((step, i) => {
+                    let html = taskGoal + steps.map((step, i) => {
                         const pred = step.prediction || '';
                         let think = '', response = '';
                         const thinkMatch = pred.match(/<think>([\s\S]*?)<\/think>/);
@@ -1110,6 +1341,11 @@
                             actionStr += ` ${action.direction}`;
                         }
 
+                        const hasFrame = step.frame_index !== undefined && meta && meta.video_file;
+                        const screenshotHtml = hasFrame
+                            ? `<details class="traj-screenshot-block"><summary>Screenshot</summary><div class="traj-screenshot is-loading"><canvas class="traj-canvas" data-frame="${step.frame_index}" data-step="${i}"></canvas><div class="traj-screenshot-spinner"><i class="fas fa-spinner fa-spin"></i> Loading screenshot…</div></div></details>`
+                            : '';
+
                         const askUser = step.ask_user_response
                             ? `<div class="traj-ask-user"><span class="traj-ask-label">User Response</span><span>${escHtml(step.ask_user_response)}</span></div>`
                             : '';
@@ -1124,6 +1360,7 @@
                                     <span class="traj-step-num">Step ${step.step || i + 1}</span>
                                     <span class="traj-action-badge">${escHtml(actionStr)}</span>
                                 </div>
+                                ${screenshotHtml}
                                 ${think ? `<details class="traj-think"><summary>Thinking</summary><div class="traj-think-body">${escHtml(think)}</div></details>` : ''}
                                 ${response ? `<div class="traj-response">${escHtml(response)}</div>` : ''}
                                 ${askUser}
@@ -1134,11 +1371,40 @@
 
                     if (task.token_usage) {
                         const tu = task.token_usage;
-                        trajSteps.innerHTML += `
+                        html += `
                             <div class="traj-token-summary">
-                                Token usage: ${(tu.prompt_tokens||0).toLocaleString()} prompt · ${(tu.completion_tokens||0).toLocaleString()} completion · ${(tu.total_tokens||0).toLocaleString()} total
+                                Token usage: ${(tu.prompt_tokens || 0).toLocaleString()} prompt · ${(tu.completion_tokens || 0).toLocaleString()} completion · ${(tu.total_tokens || 0).toLocaleString()} total
                             </div>
                         `;
+                    }
+
+                    trajSteps.innerHTML = html;
+                    updateExpandAllLabel();
+
+                    // Render screenshot frames into canvases (sequentially to avoid seek races).
+                    // Wait for the video to land in the background; bail out if the user
+                    // switches tasks before screenshots are ready.
+                    if (videoPromise && meta) {
+                        const myGen = ++renderGeneration;
+                        (async () => {
+                            const videoEl = await videoPromise;
+                            if (myGen !== renderGeneration) return;
+                            if (!videoEl) {
+                                trajSteps.querySelectorAll('.traj-screenshot.is-loading .traj-screenshot-spinner').forEach(el => {
+                                    el.innerHTML = '<i class="fas fa-image"></i> Screenshot unavailable';
+                                });
+                                return;
+                            }
+                            const canvases = trajSteps.querySelectorAll('.traj-canvas');
+                            for (const canvas of canvases) {
+                                if (myGen !== renderGeneration) return;
+                                const fi = parseInt(canvas.dataset.frame);
+                                const si = parseInt(canvas.dataset.step);
+                                const stepAction = steps[si]?.action || null;
+                                await renderScreenshotCanvas(canvas, videoEl, fi, meta.fps, meta, stepAction);
+                                canvas.parentElement?.classList.remove('is-loading');
+                            }
+                        })();
                     }
                 }
 
@@ -1151,6 +1417,22 @@
                 div.textContent = str;
                 return div.innerHTML;
             }
+
+            // Click-to-zoom on screenshot canvases
+            document.addEventListener('click', (e) => {
+                const canvas = e.target.closest('.traj-canvas');
+                if (!canvas) return;
+                const overlay = document.createElement('div');
+                overlay.className = 'traj-screenshot-overlay';
+                const big = document.createElement('canvas');
+                big.width = canvas.width * 2;
+                big.height = canvas.height * 2;
+                const ctx = big.getContext('2d');
+                ctx.drawImage(canvas, 0, 0, big.width, big.height);
+                overlay.appendChild(big);
+                overlay.addEventListener('click', () => overlay.remove());
+                document.body.appendChild(overlay);
+            });
 
             function closeTrajModal() {
                 trajModal.classList.remove('is-active');

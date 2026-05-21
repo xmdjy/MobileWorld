@@ -178,6 +178,7 @@ def build_container_config(
     env_file_path: Path | None = None,
     dev_src_path: Path | None = None,
     index: int | None = None,
+    http_proxy: str | None = None,
 ) -> ContainerConfig:
     """Build a container configuration.
 
@@ -193,6 +194,7 @@ def build_container_config(
         env_file_path: Path to .env file
         dev_src_path: Path to src directory for dev mode
         index: Container index (auto-determined if None)
+        http_proxy: Outbound HTTP(S) proxy URL exposed to container + emulator
 
     Returns:
         ContainerConfig object
@@ -213,6 +215,7 @@ def build_container_config(
         enable_vnc=enable_vnc,
         env_file_path=env_file_path,
         dev_src_path=dev_src_path,
+        http_proxy=http_proxy,
     )
 
 
@@ -244,6 +247,11 @@ def launch_container(
     envs: dict[str, str] = {}
     if config.enable_vnc or config.dev_mode:
         envs["ENABLE_VNC"] = "true"
+    if config.http_proxy:
+        envs["http_proxy"] = config.http_proxy
+        envs["https_proxy"] = config.http_proxy
+        envs["HTTP_PROXY"] = config.http_proxy
+        envs["HTTPS_PROXY"] = config.http_proxy
 
     volumes: list[tuple[str, str]] = []
     if config.dev_src_path:

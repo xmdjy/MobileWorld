@@ -103,6 +103,21 @@ def reset_maps(controller: AndroidController):
     execute_adb(f"adb -s {controller.device} shell pm clear {pkg}")
 
 
+def extract_sms_body(line: str) -> str | None:
+    """Extract SMS body from an ADB 'content query' output line.
+
+    The body field is the last column in the output, so we take everything
+    after 'body=' to the end of line. This avoids splitting on commas that
+    are part of the message text.
+    """
+    if "body=" not in line:
+        return None
+    value = line.split("body=", 1)[-1].strip()
+    if value and value != "NULL":
+        return value
+    return None
+
+
 def check_sms_via_adb(
     controller: AndroidController, phone_number: str, content: str | list[str]
 ) -> bool:
@@ -140,8 +155,9 @@ def check_sms_via_adb(
 
             body_text_lower = ""
             if "body=" in line:
-                # Extract body content
-                body_text_lower = line.split("body=")[-1].split(",")[0].strip().lower()
+                body_text = extract_sms_body(line)
+                if body_text:
+                    body_text_lower = body_text.lower()
 
             if not isinstance(content, list):
                 content = [str(content)]

@@ -42,37 +42,15 @@ While maintaining the same level of rigorous, reproducible evaluation as Android
 </p>
 
 ## 📢 Updates
+- **2026-04-29: Head-to-Head Arena & Community Submissions🔥**
+    * 🆚 **New Arena Comparison Page:** Compare any two models side-by-side at [tongyi-mai.github.io/MobileWorld/arena](https://tongyi-mai.github.io/MobileWorld/arena). Renders both trajectories step-by-step with screenshots and thinking traces, plus a confusion matrix to filter tasks by outcome (both pass / both fail / one wins / the other wins).
+    * 📤 **Submit Your Results:** Community-contributed trajectories are now accepted via [`site/bundle_trajs.py`](site/bundle_trajs.py). See [docs/submit.md](docs/submit.md).
+    * 📊 **Trajectories now browsable for:** Claude-Opus-4.7 (56.4% GUI / 59.1% User-Int), Claude-Opus-4.6 (44.5% / 34.1%), Kimi-K2.6 (55.6% / 56.8%), Kimi-K2.5 (49.6% / 51.2%), Seed-2.0-Pro (63.2% / 61.4%).
 - **2026-04-22:** Added **Claude-Opus-4.7** (56.4% GUI-Only) and **Kimi-K2.6** (55.6% GUI-Only) to the [leaderboard](https://tongyi-mai.github.io/MobileWorld/#leaderboard). Trajectory viewer now available for inspecting per-task agent traces.
 - **2026-04-15: Important Fix — Mattermost Session Expiry**
     If you pulled the Docker image before this date, Mattermost task evaluations may produce **false negatives** due to expired authentication tokens in the emulator snapshot. Please **`git pull`** the latest codebase — the fix runs automatically during task initialization (no Docker image rebuild required).
-- **2026-03-20: End-to-End Frontier Model Evaluation & Real Device Support🔥**
-    We benchmarked five frontier models — **Seed-2.0-Pro**, **Gemini 3 Pro**, **KIMI K2.5**, **Claude Sonnet 4.5**, and **Qwen-3.5** — for end-to-end mobile-use, and demonstrated real-phone execution. See our [blog post](https://tongyi-mai.github.io/MAI-UI-blog/MobileWorld-Blog-Post) for the full write-up.
-    * 🏆 **New SOTA:** **Seed-2.0-Pro** leads at **63.2%** GUI-Only and **61.4%** User-Interaction, overtaking Seed-1.8 as the top end-to-end model.
-    * 📊 **Expanded Leaderboard:**
-        * **KIMI K2.5** (49.6% GUI-Only, 51.2% User-Int)
-        * **Qwen-3.5-397B-A17B** (42.7% GUI-Only, 54.4% User-Int)
-        * **GUI-Owl-1.5-32B** (43.9% GUI-Only, 56.1% User-Int)
-        * **UI-Venus-1.5-30B** (17.1% GUI-Only)
-    * 📱 **Real Device Support:** You can now run frontier models on physical Android phones. See the [Testing on Real Devices](#-testing-on-real-devices) section.
-    * **New Agents:** `gui_owl_1_5` ([code](src/mobile_world/agents/implementations/gui_owl_1_5.py)), `ui_venus_agent` ([code](src/mobile_world/agents/implementations/ui_venus_agent.py))
-- **2026-01-16: Expanded Model Evaluation Support🔥**
-    We have introduced evaluation implementations for the latest frontier models, covering both end-to-end and agentic workflows.
-    * 🚀 **Leaderboard Upgrade with Multi-Dimensional Filtering:** We now support focused comparisons within **GUI-Only** and **User-Interaction** categories. This allows for a more balanced assessment of core navigation capabilities, especially for models not yet optimized for MCP-hybrid tool calls or complex user dialogues.
-    * 🏆 **New Performance Records:**
-        * **GUI-Only Tasks:** **Seed-1.8** secured the Top-1 spot for end-to-end performance with a **52.1%** success rate, followed by **Gemini-3-Pro** (**51.3%**) and **Claude-4.5-Sonnet** (**47.8%**).
-        * **Combined GUI & User Interaction:** **MAI-UI-235B-A22B** leads the leaderboard with a **45.4%** success rate, surpassing **Claude-4.5-Sonnet** (**43.2%**) and **Seed-1.8** (**40.8%**).    
-    * **Supported Models:**
-        * **End-to-End:**  MAI-UI, Gemini-3-Pro, Claude-4.5-sonnet, Seed-1.8, and GELab-Zero.
-        * **Agentic:** Gemini-3-Pro, Claude-4.5-sonnet, and GPT-5.
-    * **Implementation Details:**
-        * [**MAI-UI**](https://tongyi-mai.github.io/MAI-UI/) ([code](src/mobile_world/agents/implementations/mai_ui_agent.py))
-        * [**Gemini-3-Pro**](https://deepmind.google/models/gemini/pro/): End-to-end version adapted from our agentic framework utilizing Gemini’s built-in grounding ([code](src/mobile_world/agents/implementations/general_e2e_agent.py)).
-        * [**Seed-1.8**](https://seed.bytedance.com/en/seed1_8): Adapted from [OSWorld](https://github.com/xlang-ai/OSWorld/blob/main/mm_agents/seed_agent.py) for mobile action spaces, as GUI capability is not yet officially supported ([code](src/mobile_world/agents/implementations/seed_agent.py)).
-        * [**GELab-Zero**](https://arxiv.org/abs/2512.15431) ([code](src/mobile_world/agents/implementations/gelab_agent.py)).
-    * **Note on GPT-5:** While supported for agentic tasks, **GPT-5** is currently excluded from end-to-end evaluation as its grounding mechanisms remain unclear for standardized testing.
-- **2025-12-29**: We released [MAI-UI](https://tongyi-mai.github.io/MAI-UI/), achieving SOTA performance with a 41.7% success rate in the end-to-end models category on the MobileWorld benchmark.
-- **2025-12-23**: Initial release of MobileWorld benchmark. Check out our [paper](https://arxiv.org/abs/2512.19432) and [website](https://tongyi-mai.github.io/MobileWorld/)🔥.
-- **2025-12-23**: Docker image `ghcr.io/Tongyi-MAI/mobile_world:latest` available for public use.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 
 ## 📋 Table of Contents
@@ -83,6 +61,7 @@ While maintaining the same level of rigorous, reproducible evaluation as Android
 - [Testing on Real Devices](#-testing-on-real-devices)
 - [Available Commands](#-available-commands)
 - [Documentation](#-documentation)
+- [Submit Your Results](#-submit-your-results)
 - [Benchmark Statistics](#-benchmark-statistics)
 - [Contact](#-contact)
 - [Acknowledgements](#-acknowledgements)
@@ -238,93 +217,7 @@ Opens an interactive web-based visualization at `http://localhost:8760` to explo
 
 ## 📱 Testing on Real Devices
 
-Beyond the containerized emulator environment, MobileWorld supports running frontier models on **real physical Android phones**. This lets you evaluate models like Gemini, Claude, Qwen, and others as true end-to-end mobile agents.
-
-### Prerequisites
-
-- A physical Android phone connected via USB
-- ADB (Android Debug Bridge) installed on your local machine
-- An API key for the model you want to test
-
-### Step 1: Install ADB
-
-Download the official [ADB platform-tools](https://developer.android.com/tools/releases/platform-tools) and extract it.
-
-**macOS/Linux:**
-```bash
-# Assuming extracted to ~/Downloads/platform-tools
-export PATH=${PATH}:~/Downloads/platform-tools
-```
-
-**Windows:** Refer to [this guide](https://blog.csdn.net/x2584179909/article/details/108319973) for configuration steps.
-
-### Step 2: Connect Your Phone & Enable USB Debugging
-
-1. **Enable Developer Mode:** Go to *Settings > About Phone > Build Number* and tap rapidly ~10 times until you see "Developer mode has been enabled."
-2. **Enable USB Debugging:** Go to *Settings > Developer Options > USB Debugging* and enable it. Some devices may require a restart.
-3. **Verify the connection:**
-
-```bash
-adb devices
-
-# Expected output:
-# List of devices attached
-# <your_device_id>   device
-```
-
-### Step 3: Install ADB Keyboard (Optional)
-
-ADB Keyboard is needed for text input. Download the [ADBKeyboard.apk](https://github.com/senzhk/ADBKeyBoard/blob/master/ADBKeyboard.apk) and install it on your device:
-
-```bash
-adb install ADBKeyboard.apk
-adb shell ime enable com.android.adbkeyboard/.AdbIME
-```
-
-> **Note:** This step is optional — MobileWorld will install it automatically if not present.
-
-### Step 4: Clone MobileWorld
-
-```bash
-git clone https://github.com/Tongyi-MAI/MobileWorld.git
-cd MobileWorld
-uv sync
-```
-
-### Step 5: Start the MobileWorld Server
-
-```bash
-uv run mobile-world server
-```
-
-This starts the backend API server that bridges the model and the device.
-
-### Step 6: Run a Task on Your Real Device
-
-```bash
-uv run mw test "set an alarm at 8:00 am" \
-    --agent-type general_e2e \
-    --model_name anthropic/claude-sonnet-4-5 \
-    --llm_base_url https://openrouter.ai/api/v1 \
-    --aw-host http://127.0.0.1:6800 \
-    --api_key YOUR_API_KEY
-```
-
-Replace `--model_name`, `--llm_base_url`, and `--api_key` with the model and credentials you want to use. Any OpenAI-compatible endpoint works. The `--agent-type general_e2e` prompt works across most frontier models. For Seed-2.0-Pro, use `--agent-type seed_agent` for better performance.
-
-### Supported End-to-End Models
-
-| Model             | Agent Type    | Coordinate System | Notes                                         |
-|-------------------|---------------|-------------------|-----------------------------------------------|
-| Claude Opus 4.7   | `general_e2e` | Absolute pixels   | 1 image in history (see leaderboard notes)    |
-| Kimi K2.6         | `general_e2e` | Relative (0–1)    |                                               |
-| Gemini 3 Pro      | `general_e2e` | Relative (0–1000) | Normalized coordinates                        |
-| Claude Sonnet 4.5 | `general_e2e` | Absolute pixels   | Requires image resize to 1280×720             |
-| Qwen-3.5          | `general_e2e` | Relative (0–1000) |                                               |
-| KIMI K2.5         | `general_e2e` | Relative (0–1)    |                                               |
-| Seed-2.0-Pro      | `seed_agent`  | Relative (0–1000) | Best with specialized `seed_agent` agent type |
-
-> **Tip:** You can view the live device screen at any time with `uv run mw device`.
+Beyond the containerized emulator, MobileWorld can drive **real Android phones** via ADB — evaluating frontier models (Claude, Gemini, Qwen, Kimi, Seed-2.0-Pro, …) as true end-to-end mobile agents. See [docs/real-devices.md](docs/real-devices.md) for the setup walkthrough and the per-model coordinate-system reference.
 
 ---
 
@@ -364,9 +257,22 @@ For detailed documentation, see the `docs/` directory:
 | Document                                   | Description                                         |
 |--------------------------------------------|-----------------------------------------------------|
 | [Development Guide](docs/development.md)   | Dev mode, debugging, container management workflows |
+| [Real Device Setup](docs/real-devices.md)  | Run frontier models on a physical Android phone     |
+| [Submit Your Results](docs/submit.md)      | Bundle trajectories and contribute to the leaderboard |
 | [MCP Setup](docs/mcp_setup.md)             | Configure MCP servers for external tool integration |
 | [Windows Setup](docs/setup_for_windows.md) | WSL2 and KVM setup instructions for Windows         |
 | [AVD Configuration](docs/configure_avd.md) | Customize and save Android Virtual Device snapshots |
+
+---
+
+## 📤 Submit Your Results
+
+Have a trajectory run from a new model or agent configuration? We accept community contributions to the [leaderboard](https://tongyi-mai.github.io/MobileWorld/#leaderboard) and [arena](https://tongyi-mai.github.io/MobileWorld/arena).
+
+1. Bundle your `traj_logs/<run>` directory with [`site/bundle_trajs.py`](site/bundle_trajs.py) (use `--with-screenshots` to include arena-viewable frames).
+2. Open a [GitHub issue](https://github.com/Tongyi-MAI/MobileWorld/issues) attaching the resulting `.json.gz` (+ optional `.mp4`) and a draft `site/leaderboard.json` entry.
+
+See [docs/submit.md](docs/submit.md) for the bundling commands, the full leaderboard-entry schema, and the asset-repo upload flow.
 
 ---
 
@@ -410,10 +316,7 @@ If you find MobileWorld useful in your research, please cite our paper:
 
 ```bibtex
 @inproceedings{kong2025mobileworld,
-      title={MobileWorld: Benchmarking 
-Autonomous Mobile Agents in Agent-User 
-Interactive, and MCP-Augmented 
-Environments},
+      title={MobileWorld: Benchmarking Autonomous Mobile Agents in Agent-User Interactive, and MCP-Augmented Environments},
       author={Quyu Kong and Xu Zhang and Zhenyu Yang and Nolan Gao and Chen Liu and Panrong Tong and Chenglin Cai and Hanzhang Zhou and Jianan Zhang and Liangyu Chen and Zhidan Liu and Steven Hoi and Yue Wang},
       booktitle={Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (ACL)},
       year={2026},

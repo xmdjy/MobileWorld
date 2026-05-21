@@ -4,7 +4,7 @@ import re
 
 from loguru import logger
 
-from mobile_world.runtime.app_helpers.system import reset_maps
+from mobile_world.runtime.app_helpers.system import extract_sms_body, reset_maps
 from mobile_world.runtime.controller import AndroidController
 from mobile_world.runtime.utils.helpers import execute_adb
 from mobile_world.tasks.base import BaseTask
@@ -129,9 +129,7 @@ class TextArrivalTimeTask(BaseTask):
                     phone_match = True
 
                 if "body=" in line:
-                    body_match = re.search(r"body=([^,]+)", line)
-                    if body_match:
-                        message_content = body_match.group(1).strip()
+                    message_content = extract_sms_body(line)
 
                 if phone_match and message_content:
                     logger.info(

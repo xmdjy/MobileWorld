@@ -184,6 +184,18 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
         default=10,
         help="Seconds to wait between launching each container (default: 10)",
     )
+    launch_parser.add_argument(
+        "--http-proxy",
+        "--http_proxy",
+        dest="http_proxy",
+        type=str,
+        default=None,
+        help=(
+            "HTTP(S) proxy URL forwarded to the container (Python) and the "
+            "Android emulator (system-wide). Example: http://proxy.host:8888. "
+            "10.0.2.2/127.0.0.1/localhost are always excluded."
+        ),
+    )
 
     # Destroy subcommand
     destroy_parser = env_subparsers.add_parser(
@@ -465,6 +477,7 @@ def _launch_containers(args: argparse.Namespace) -> None:
             enable_vnc=args.vnc or args.dev,
             env_file_path=env_file_path,
             dev_src_path=dev_src_path,
+            http_proxy=args.http_proxy,
         )
         container_configs.append(config)
 
@@ -504,6 +517,11 @@ def _launch_containers(args: argparse.Namespace) -> None:
             envs: dict[str, str] = {}
             if config.enable_vnc or config.dev_mode:
                 envs["ENABLE_VNC"] = "true"
+            if config.http_proxy:
+                envs["http_proxy"] = config.http_proxy
+                envs["https_proxy"] = config.http_proxy
+                envs["HTTP_PROXY"] = config.http_proxy
+                envs["HTTPS_PROXY"] = config.http_proxy
 
             volumes: list[tuple[str, str]] = []
             if config.dev_src_path:

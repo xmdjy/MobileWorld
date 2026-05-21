@@ -195,7 +195,7 @@ class BaseTask(abc.ABC):
 
         return True
 
-    def run_task(self, controller: AndroidController, agent_question: str = None) -> bool | None:
+    def run_task(self, agent_question: str = None) -> bool | None:
         from mobile_world.tasks.utils import wait_for_execution
 
         controller = AndroidController(device="emulator-5554")

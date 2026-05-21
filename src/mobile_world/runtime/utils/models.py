@@ -515,6 +515,7 @@ class ContainerConfig(BaseModel):
     enable_vnc: bool = False
     env_file_path: Any | None = None  # Path
     dev_src_path: Any | None = None  # Path
+    http_proxy: str | None = None
 
 
 class LaunchResult(BaseModel):

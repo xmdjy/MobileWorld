@@ -157,11 +157,14 @@ def health():
                 f"cooldown: {RESTART_COOLDOWN_SECONDS}s)"
             )
 
-    return {
-        "ok": all_healthy,
-        "devices": list(CONTROLLERS.keys()),
-        "device_status": device_status,
-    }
+    return JSONResponse(
+        status_code=200 if all_healthy else 503,
+        content={
+            "ok": all_healthy,
+            "devices": list(CONTROLLERS.keys()),
+            "device_status": device_status,
+        },
+    )
 
 
 def _init_controller(device: str) -> dict[str, Any]:
