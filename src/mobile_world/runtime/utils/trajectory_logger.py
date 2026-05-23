@@ -108,6 +108,11 @@ class TrajLogger:
         obs: Observation,
         token_usage: dict[str, int] = None,
         checker_result: dict | None = None,
+        dhash_distance: int | None = None,
+        no_change_count: int | None = None,
+        trigger_reason: str | None = None,
+        mas_divergence: dict | None = None,
+        action_source: str | None = None,
     ) -> None:
         task_id = "0"
 
@@ -127,6 +132,16 @@ class TrajLogger:
         }
         if checker_result is not None:
             step_entry["checker_result"] = checker_result
+        if dhash_distance is not None:
+            step_entry["dhash_distance"] = dhash_distance
+        if no_change_count is not None:
+            step_entry["no_change_count"] = no_change_count
+        if trigger_reason is not None:
+            step_entry["trigger_reason"] = trigger_reason
+        if mas_divergence is not None:
+            step_entry["mas_divergence"] = mas_divergence
+        if action_source is not None:
+            step_entry["action_source"] = action_source
 
         log_data[task_id]["traj"].append(step_entry)
         log_data[task_id]["token_usage"] = token_usage

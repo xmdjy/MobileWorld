@@ -364,3 +364,145 @@ class Qwen3VLAgentMCP(MCPAgent):
             self.history_images.pop()
             dropped = True
         return dropped
+
+    # ------------------------------------------------------------------
+    # MAS divergence support: propose_candidate (read-only, no state mutation)
+    # ------------------------------------------------------------------
+
+    def _build_steps_str(self, conclusions_slice: list[str]) -> str:
+        """Render a list of conclusions into the 'Step N: ...' string format."""
+        steps = ""
+        for idx, conclusion in enumerate(conclusions_slice):
+            steps += (
+                "Step "
+                + str(idx + 1)
+                + ": "
+                + str(conclusion.replace("\n", "").replace('"', ""))
+                + "; "
+            )
+        return steps
+
+    def _build_messages_for_candidate(
+        self,
+        screenshot,
+        history_mode: str,
+        skip_recent_k: int,
+        extra_instruction: str,
+        executed_actions: list[dict] | None,
+    ) -> list[dict]:
+        """Build prompt messages for a candidate proposal.
+
+        Does NOT mutate self state. Read-only access to self.conclusions etc.
+        """
+        encoded_string = pil_to_base64(screenshot)
+        system_prompt = MOBILE_QWEN3VL_PROMPT_WITH_ASK_USER.render(
+            tools="\n".join([json.dumps(tool, ensure_ascii=False) for tool in self.tools])
+        )
+
+        # Determine which conclusions slice to expose
+        if history_mode == "warm":
+            steps_str = self._build_steps_str(self.conclusions)
+        elif history_mode == "cold":
+            # No history; instead provide a factual record of executed actions
+            steps_str = ""
+            if executed_actions:
+                fact_lines = []
+                for i, a in enumerate(executed_actions[-10:]):
+                    fact_lines.append(f"  - {a}")
+                fact_block = (
+                    "\n[Factual record: prior actions attempted in this task "
+                    "(not necessarily yours, not necessarily successful)]\n"
+                    + "\n".join(fact_lines)
+                )
+                # Append fact_block to the extra_instruction
+                extra_instruction = (extra_instruction + fact_block).strip()
+        elif history_mode == "skip_recent":
+            if skip_recent_k <= 0:
+                trimmed = list(self.conclusions)
+            elif skip_recent_k >= len(self.conclusions):
+                trimmed = []
+            else:
+                trimmed = self.conclusions[:-skip_recent_k]
+            steps_str = self._build_steps_str(trimmed)
+        else:
+            raise ValueError(f"Unknown history_mode: {history_mode}")
+
+        messages = [
+            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+        ]
+        user_text = MOBILE_QWEN3VL_USER_TEMPLATE.format(
+            instruction=self.instruction, steps=steps_str
+        )
+        if extra_instruction:
+            user_text = user_text + "\n\n" + extra_instruction
+
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_text},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{encoded_string}"},
+                    },
+                ],
+            }
+        )
+        return messages
+
+    def propose_candidate(
+        self,
+        observation: dict[str, Any],
+        task_goal: str,
+        history_mode: str = "warm",
+        skip_recent_k: int = 3,
+        extra_instruction: str = "",
+        temperature: float | None = None,
+        executed_actions: list[dict] | None = None,
+    ) -> tuple[str, dict]:
+        """Generate a candidate action without mutating agent state.
+
+        See BaseAgent.propose_candidate for the contract.
+        """
+        screenshot = observation["screenshot"]
+        origin_h, origin_w = screenshot.height, screenshot.width
+
+        messages = self._build_messages_for_candidate(
+            screenshot=screenshot,
+            history_mode=history_mode,
+            skip_recent_k=skip_recent_k,
+            extra_instruction=extra_instruction,
+            executed_actions=executed_actions,
+        )
+
+        # Build runtime kwargs, optionally overriding temperature
+        runtime_conf = dict(self.runtime_conf)
+        if temperature is not None:
+            runtime_conf["temperature"] = temperature
+
+        prediction = self.openai_chat_completions_create(
+            model=self.model_name,
+            messages=messages,
+            retry_times=2,
+            **runtime_conf,
+        )
+        if prediction is None:
+            raise RuntimeError("propose_candidate: API returned None")
+
+        parsed_response = parse_action_to_structure_output(prediction)
+
+        # Convert to a concrete action dict (mirror predict()'s conversion path)
+        if parsed_response["action_name"] == "mobile_use":
+            action_dict = parsing_response_to_andoid_world_env_action(
+                parsed_response,
+                origin_h,
+                origin_w,
+            )
+        else:
+            action_dict = {
+                "action_name": parsed_response["action_name"],
+                "action_args": parsed_response["action_json"],
+            }
+
+        return prediction, action_dict
+

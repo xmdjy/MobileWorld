@@ -376,6 +376,60 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
         default=None,
         help="API key for the checker LLM (default: same as --api-key)",
     )
+    eval_parser.add_argument(
+        "--checker-dhash-threshold",
+        "--checker_dhash_threshold",
+        dest="checker_dhash_threshold",
+        type=int,
+        default=4,
+        help="Hamming distance threshold for dHash-based no_change detection (default: 4)",
+    )
+    eval_parser.add_argument(
+        "--checker-no-change-k",
+        "--checker_no_change_k",
+        dest="checker_no_change_k",
+        type=int,
+        default=3,
+        help="Consecutive no_change steps required to trigger checker via stuck_loop (default: 3)",
+    )
+    eval_parser.add_argument(
+        "--checker-disable-answer-trigger",
+        "--checker_disable_answer_trigger",
+        dest="checker_disable_answer_trigger",
+        action="store_true",
+        help="Disable checker triggering on ANSWER action (default: enabled)",
+    )
+    eval_parser.add_argument(
+        "--mas-enabled",
+        "--mas_enabled",
+        dest="mas_enabled",
+        action="store_true",
+        help="Enable MAS divergence: when checker blocks on stuck_loop trigger, generate K=3 alternative candidates from agents with different history views and execute one (hard override)",
+    )
+    eval_parser.add_argument(
+        "--mas-skip-recent-k",
+        "--mas_skip_recent_k",
+        dest="mas_skip_recent_k",
+        type=int,
+        default=3,
+        help="For the skip_recent MAS agent, how many recent history entries to drop (default: 3)",
+    )
+    eval_parser.add_argument(
+        "--mas-recent-window",
+        "--mas_recent_window",
+        dest="mas_recent_window",
+        type=int,
+        default=5,
+        help="Window size N for recent executed action signatures used in filter and anti-bias text (default: 5)",
+    )
+    eval_parser.add_argument(
+        "--mas-finished-loop-k",
+        "--mas_finished_loop_k",
+        dest="mas_finished_loop_k",
+        type=int,
+        default=3,
+        help="K_finished_loop: after K consecutive completion_check blocks, escalate to completion_check_loop trigger and route to MAS divergence (default: 3)",
+    )
 
 
 async def _execute_pass_k(
@@ -420,6 +474,13 @@ async def _execute_pass_k(
             checker_model_name=getattr(args, "checker_model_name", None),
             checker_base_url=getattr(args, "checker_base_url", None),
             checker_api_key=getattr(args, "checker_api_key", None),
+            checker_dhash_threshold=getattr(args, "checker_dhash_threshold", 4),
+            checker_no_change_k=getattr(args, "checker_no_change_k", 3),
+            checker_enable_answer_trigger=not getattr(args, "checker_disable_answer_trigger", False),
+            mas_enabled=getattr(args, "mas_enabled", False),
+            mas_skip_recent_k=getattr(args, "mas_skip_recent_k", 3),
+            mas_recent_window=getattr(args, "mas_recent_window", 5),
+            mas_finished_loop_k=getattr(args, "mas_finished_loop_k", 3),
         )
 
         logger.info("=== Completed pass@{} run {}/{} ===", pass_k, i, pass_k)
@@ -499,6 +560,13 @@ async def execute(args: argparse.Namespace) -> None:
         checker_model_name=getattr(args, "checker_model_name", None),
         checker_base_url=getattr(args, "checker_base_url", None),
         checker_api_key=getattr(args, "checker_api_key", None),
+        checker_dhash_threshold=getattr(args, "checker_dhash_threshold", 4),
+        checker_no_change_k=getattr(args, "checker_no_change_k", 3),
+        checker_enable_answer_trigger=not getattr(args, "checker_disable_answer_trigger", False),
+        mas_enabled=getattr(args, "mas_enabled", False),
+        mas_skip_recent_k=getattr(args, "mas_skip_recent_k", 3),
+        mas_recent_window=getattr(args, "mas_recent_window", 5),
+        mas_finished_loop_k=getattr(args, "mas_finished_loop_k", 3),
     )
     if run_all_tasks and task_results:
         total_duration = time.time() - start_time

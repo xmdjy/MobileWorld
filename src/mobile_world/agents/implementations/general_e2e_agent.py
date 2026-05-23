@@ -480,3 +480,147 @@ class GeneralE2EAgentMCP(MCPAgent):
             self.history_images.pop()
             dropped = True
         return dropped
+
+    # ------------------------------------------------------------------
+    # MAS divergence support: propose_candidate (read-only, no state mutation)
+    # ------------------------------------------------------------------
+
+    def _prep_screenshot_for_candidate(self, screenshot):
+        """Apply the same resize / scale handling that predict() does, returning
+        (obs_image, active_scale_factor, orig_width, orig_height)."""
+        orig_width, orig_height = screenshot.size
+        if self._use_adaptive_resize:
+            obs_image, _, _ = pil_adaptive_resize(screenshot, CLAUDE_OPUS_MAX_DIMENSION)
+            active_scale_factor = obs_image.size
+        elif "claude" in self.model_name.lower():
+            obs_image = screenshot.resize(CLAUDE_IMAGE_SIZE)
+            active_scale_factor = self.scale_factor
+        else:
+            obs_image = screenshot
+            active_scale_factor = obs_image.size
+        return obs_image, active_scale_factor, orig_width, orig_height
+
+    def propose_candidate(
+        self,
+        observation: dict[str, Any],
+        task_goal: str,
+        history_mode: str = "warm",
+        skip_recent_k: int = 3,
+        extra_instruction: str = "",
+        temperature: float | None = None,
+        executed_actions: list[dict] | None = None,
+    ) -> tuple[str, dict]:
+        """Generate a candidate action without mutating agent state.
+
+        See BaseAgent.propose_candidate for the contract.
+        """
+        screenshot = observation["screenshot"]
+        tool_call = observation.get("tool_call", None)
+        ask_user_response = observation.get("ask_user_response", None)
+
+        obs_image, active_scale_factor, orig_width, orig_height = (
+            self._prep_screenshot_for_candidate(screenshot)
+        )
+
+        # Build messages WITHOUT touching self state.
+        system_prompt = GENERAL_E2E_PROMPT_TEMPLATE.render(
+            tools="\n".join([json.dumps(tool, ensure_ascii=False) for tool in self.tools]),
+            scale_factor=active_scale_factor,
+        )
+        messages: list[dict] = [{"role": "system", "content": system_prompt}]
+
+        if history_mode == "cold":
+            # No prior history; single user turn with task + current screenshot
+            # + optional fact list of executed actions
+            fact_text = ""
+            if executed_actions:
+                fact_lines = []
+                for a in executed_actions[-10:]:
+                    fact_lines.append(f"  - {a}")
+                fact_text = (
+                    "\n[Factual record: prior actions attempted in this task "
+                    "(not necessarily yours, not necessarily successful)]\n"
+                    + "\n".join(fact_lines)
+                )
+            instruction_with_facts = self.instruction
+            if fact_text:
+                instruction_with_facts = self.instruction + "\n" + fact_text
+            user_msg = self._get_user_message(
+                obs_image, tool_call, ask_user_response, instruction=instruction_with_facts
+            )
+            messages.append(user_msg)
+        else:
+            # warm or skip_recent: replay history then current screenshot
+            if not self.history_images:
+                # Edge case: nothing in history yet
+                user_msg = self._get_user_message(
+                    obs_image, tool_call, ask_user_response, instruction=self.instruction
+                )
+                messages.append(user_msg)
+            else:
+                # The first entry includes the instruction
+                first_img, first_tool, first_ask = self.history_images[0]
+                messages.append(
+                    self._get_user_message(
+                        first_img, first_tool, first_ask, instruction=self.instruction
+                    )
+                )
+
+                # Decide which history_responses to replay
+                responses = list(self.history_responses)
+                if history_mode == "skip_recent" and skip_recent_k > 0:
+                    if skip_recent_k >= len(responses):
+                        responses = []
+                    else:
+                        responses = responses[:-skip_recent_k]
+
+                # Replay (response, follow-up user) pairs
+                # NOTE: self.history_images[i+1] pairs with self.history_responses[i]
+                for i, history_resp in enumerate(responses):
+                    history_img_data, tool_call_res, ask_user_response_res = self.history_images[
+                        i + 1
+                    ]
+                    response_message = {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": history_resp.get("content", "")}],
+                    }
+                    user_message = self._get_user_message(
+                        history_img_data, tool_call_res, ask_user_response_res
+                    )
+                    messages.append(response_message)
+                    messages.append(user_message)
+
+                # Finally append the CURRENT step's user turn (not yet in self.history_images)
+                cur_user_msg = self._get_user_message(
+                    obs_image, tool_call, ask_user_response
+                )
+                messages.append(cur_user_msg)
+
+        # Append extra_instruction (anti-bias text) at the start of last user message
+        if extra_instruction:
+            messages[-1]["content"].insert(
+                0,
+                {"type": "text", "text": extra_instruction},
+            )
+
+        # Hide all but the most recent image (mirror predict()'s behavior)
+        messages = self._hide_history_images(messages)
+
+        runtime_conf = dict(self.runtime_conf)
+        if temperature is not None:
+            runtime_conf["temperature"] = temperature
+
+        response = self.openai_chat_completions_create(
+            model=self.model_name,
+            messages=messages,
+            retry_times=2,
+            **runtime_conf,
+        )
+        if response is None:
+            raise RuntimeError("propose_candidate: API returned None")
+
+        thought, action_str = parse_action(response)
+        json_action_dict = parse_response_to_action(
+            action_str, orig_width, orig_height, active_scale_factor
+        )
+        return response, json_action_dict

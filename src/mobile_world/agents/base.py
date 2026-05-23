@@ -57,6 +57,42 @@ class BaseAgent(ABC):
         """Drop the most recent prediction from agent-owned prompt history if supported."""
         return False
 
+    def propose_candidate(
+        self,
+        observation: dict[str, Any],
+        task_goal: str,
+        history_mode: str = "warm",
+        skip_recent_k: int = 3,
+        extra_instruction: str = "",
+        temperature: float | None = None,
+        executed_actions: list[dict] | None = None,
+    ) -> tuple[str, dict]:
+        """Generate a candidate action WITHOUT mutating agent state.
+
+        Used by the MAS divergence flow to obtain alternative actions from the
+        agent under different history views.
+
+        Args:
+            observation: current step observation (must include 'screenshot').
+            task_goal: original task goal text.
+            history_mode: one of "warm" | "cold" | "skip_recent".
+            skip_recent_k: for skip_recent mode, how many recent history entries to drop.
+            extra_instruction: anti-bias text block appended to the user message.
+            temperature: optional override of sampling temperature.
+            executed_actions: list of actually-executed actions, used for cold-mode
+                fact list. Most-recent at end.
+
+        Returns:
+            Tuple of (raw_prediction_text, parsed_action_dict).
+
+        Raises:
+            NotImplementedError if the agent subclass does not implement this method.
+            RuntimeError / ValueError on API failure or parse failure.
+        """
+        raise NotImplementedError(
+            "propose_candidate not implemented for this agent type"
+        )
+
     def build_openai_client(self, base_url: str, api_key: str) -> None:
         """Build the OpenAI client."""
         self.openai_client = OpenAI(
