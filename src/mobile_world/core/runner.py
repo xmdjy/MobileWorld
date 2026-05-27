@@ -10,10 +10,7 @@ from loguru import logger
 
 from mobile_world.agents.base import BaseAgent, MCPAgent
 from mobile_world.agents.checker import Checker, CheckerResult
-from mobile_world.agents.mas_divergence import (
-    action_signature,
-    run_mas_divergence,
-)
+from mobile_world.agents.mas_divergence import run_mas_divergence
 from mobile_world.agents.registry import create_agent
 from mobile_world.agents.utils.visual_diff import (
     compute_dhash,
@@ -51,20 +48,7 @@ def _format_checker_constraint(
     checker_result: CheckerResult,
     trigger_reason: str = "completion_check",
 ) -> str:
-    """Build the constraint message that gets injected into the next agent step.
-
-    The wording differs by trigger_reason so the agent receives feedback
-    grounded in the actual failure mode.
-    """
-    if trigger_reason == "stuck_loop":
-        return (
-            "SYSTEM CONSTRAINT FROM VISUAL CHECKER:\n"
-            "A no-progress loop was detected: the screen has not changed for several "
-            "consecutive actions, indicating your recent actions are not taking effect.\n"
-            f"Checker reason: {checker_result.reason}\n"
-            "Do not repeat the same ineffective action. Re-examine the current screen "
-            "and choose a substantially different action or target."
-        )
+    """Build the constraint message that gets injected into the next agent step."""
     return (
         "SYSTEM CONSTRAINT FROM VISUAL CHECKER:\n"
         "Your previous attempt to stop was not visually verified.\n"
@@ -93,7 +77,7 @@ def _execute_single_task(
     no_change_k: int = 3,
     enable_answer_trigger: bool = True,
     mas_enabled: bool = False,
-    mas_skip_recent_k: int = 3,
+    mas_skip_recent_k: int = 8,
     mas_recent_window: int = 5,
     mas_click_tol: int = 80,
     mas_drag_tol: int = 100,
@@ -127,8 +111,9 @@ def _execute_single_task(
     prev_hash: list[int] | None = None
     no_change_count: int = 0
     last_step_blocked: bool = False
-    executed_actions: list[dict] = []  # Real actions taken in env (incl. MAS overrides)
-    consecutive_completion_check_blocks: int = 0  # For completion_check_loop escalation
+    executed_actions: list[dict] = []
+    recent_visual_steps: list[dict] = []
+    consecutive_fallback_count: int = 0
 
     while True:
         step += 1
@@ -169,124 +154,96 @@ def _execute_single_task(
         prediction, action = agent.predict(agent_observation)
 
         # ============ Phase 3: trigger decision ============
+        # completion_check (FINISHED/ANSWER) → checker (preserved behavior)
+        # stuck_loop (no_change_count >= K) → MAS hard override, no checker
+        # Triggers are mutually exclusive; completion_check takes priority.
         trigger_reason: str | None = None
         if prediction is not None:
             if _should_check_terminal_action(action, enable_answer_trigger=enable_answer_trigger):
-                # If consecutive completion_check blocks already crossed threshold,
-                # treat this attempt as a stuck-in-termination loop.
-                if (
-                    mas_enabled
-                    and consecutive_completion_check_blocks >= mas_finished_loop_k
-                ):
-                    trigger_reason = "completion_check_loop"
-                else:
-                    trigger_reason = "completion_check"
-            elif no_change_count >= no_change_k:
+                trigger_reason = "completion_check"
+            elif mas_enabled and no_change_count >= no_change_k:
                 trigger_reason = "stuck_loop"
 
-        # ============ Phase 4: checker call ============
+        # ============ Phase 4: checker call (only for completion_check) ============
         checker_result = None
         checker_blocked = False
-        if checker is not None and prediction is not None and trigger_reason is not None:
+        if checker is not None and prediction is not None and trigger_reason == "completion_check":
             checker_result_obj = checker.check_finished(
                 task_goal=task_goal,
                 screenshot=obs.screenshot,
                 prediction=prediction,
                 action=action.model_dump(exclude_none=True),
                 step=step,
+                recent_steps=recent_visual_steps[-3:],
                 trigger_reason=trigger_reason,
             )
             checker_result = checker_result_obj.model_dump()
             checker_blocked = not checker_result_obj.res
-            # Reset no_change_count after stuck_loop fire to avoid re-triggering
-            # every subsequent step on the same condition.
-            if trigger_reason == "stuck_loop":
-                no_change_count = 0
 
-        # ============ Phase 5: action determination (with optional MAS divergence) ============
-        action_to_execute = action
+        # ============ Phase 5: action determination ============
+        # Two independent paths:
+        #   (a) checker_blocked (only completion_check): mask + constraint, no execute
+        #   (b) trigger_reason == "stuck_loop": MAS divergence, hard override
         action_source = "agent"
+        action_to_execute = action
         mas_dump: dict | None = None
-        mas_active = False  # True iff MAS divergence ran and produced an executable action
+        mas_active = False
 
         if checker_blocked:
-            # Decide if this block routes to MAS divergence.
-            # MAS handles: stuck_loop trigger, OR completion_check_loop trigger
-            # (where agent has tried finished/answer K_finished_loop times consecutively).
-            route_to_mas = mas_enabled and trigger_reason in (
-                "stuck_loop",
-                "completion_check_loop",
+            # Checker feedback is advisory/masking only.
+            pending_checker_constraint = _format_checker_constraint(
+                checker_result_obj,
+                trigger_reason=trigger_reason,
             )
-            if route_to_mas:
-                # NEW: MAS divergence + hard override
+            dropped_history = _drop_last_agent_prediction_if_supported(agent)
+            logger.info(
+                "Checker blocked action in step {} via {}: {} (dropped_history={})",
+                step,
+                trigger_reason,
+                checker_result_obj.reason,
+                dropped_history,
+            )
+        elif trigger_reason == "stuck_loop":
+            # MAS divergence (decoupled from checker)
+            logger.info("MAS divergence engaging at step {} via stuck_loop trigger", step)
+            try:
+                mas_result = run_mas_divergence(
+                    agent=agent,
+                    observation=agent_observation,
+                    task_goal=task_goal,
+                    executed_actions=executed_actions,
+                    skip_recent_k=mas_skip_recent_k,
+                    recent_sig_window=mas_recent_window,
+                    click_tol=mas_click_tol,
+                    drag_tol=mas_drag_tol,
+                    rejected_action=action.model_dump(exclude_none=True),
+                    consecutive_fallback_count=consecutive_fallback_count,
+                )
+                mas_dump = mas_result.model_dump()
+                selected = dict(mas_result.selected_action)
+                action_to_execute = JSONAction(**selected)
+                action_source = f"mas_{mas_result.selected_role}"
+                mas_active = True
+                # Clean main agent's history so it does not retain the rejected
+                # prediction that was actually overridden.
+                _drop_last_agent_prediction_if_supported(agent)
+                if mas_result.fallback_used:
+                    consecutive_fallback_count += 1
+                else:
+                    consecutive_fallback_count = 0
                 logger.info(
-                    "MAS divergence engaging at step {} via {} trigger",
-                    step,
-                    trigger_reason,
+                    "MAS selected role={} action={} fallback={}",
+                    mas_result.selected_role,
+                    mas_result.selected_action,
+                    mas_result.fallback_used,
                 )
-                try:
-                    mas_result = run_mas_divergence(
-                        agent=agent,
-                        observation=agent_observation,
-                        task_goal=task_goal,
-                        executed_actions=executed_actions,
-                        skip_recent_k=mas_skip_recent_k,
-                        recent_sig_window=mas_recent_window,
-                        click_tol=mas_click_tol,
-                        drag_tol=mas_drag_tol,
-                        rejected_action=action.model_dump(exclude_none=True),
-                    )
-                    mas_dump = mas_result.model_dump()
-                    # Build a JSONAction from the selected action dict
-                    selected = dict(mas_result.selected_action)
-                    action_to_execute = JSONAction(**selected)
-                    action_source = f"mas_{mas_result.selected_role}"
-                    mas_active = True
-                    # Clean main agent's history so it does not retain the
-                    # rejected prediction that was actually overridden.
-                    _drop_last_agent_prediction_if_supported(agent)
-                    # No constraint message — the new screenshot is the feedback.
-                    pending_checker_constraint = None
-                    # Reset consecutive completion_check counter so we get a
-                    # fresh K-step window after the MAS intervention.
-                    consecutive_completion_check_blocks = 0
-                    logger.info(
-                        "MAS selected role={} action={} fallback={}",
-                        mas_result.selected_role,
-                        mas_result.selected_action,
-                        mas_result.fallback_used,
-                    )
-                except Exception as exc:
-                    logger.exception(f"MAS divergence raised at step {step}: {exc}")
-                    # Fall back to original mask + constraint behavior
-                    pending_checker_constraint = _format_checker_constraint(
-                        checker_result_obj,
-                        trigger_reason=trigger_reason,
-                    )
-                    _drop_last_agent_prediction_if_supported(agent)
-                    if trigger_reason in ("completion_check", "completion_check_loop"):
-                        consecutive_completion_check_blocks += 1
-            else:
-                # completion_check block (MAS disabled or below escalation K):
-                # existing mask + constraint
-                pending_checker_constraint = _format_checker_constraint(
-                    checker_result_obj,
-                    trigger_reason=trigger_reason,
-                )
-                dropped_history = _drop_last_agent_prediction_if_supported(agent)
-                logger.info(
-                    "Checker blocked action in step {} via {}: {} (dropped_history={})",
-                    step,
-                    trigger_reason,
-                    checker_result_obj.reason,
-                    dropped_history,
-                )
-                # Track consecutive completion_check blocks for escalation
-                if trigger_reason == "completion_check":
-                    consecutive_completion_check_blocks += 1
-        else:
-            # No block: reset the consecutive counter
-            consecutive_completion_check_blocks = 0
+            except Exception as exc:
+                logger.exception(f"MAS divergence raised at step {step}: {exc}")
+                mas_active = False
+            # Reset no_change_count after stuck_loop fire (regardless of MAS
+            # success) so trigger does not re-fire every subsequent step on
+            # the same accumulated count.
+            no_change_count = 0
 
         # ============ Phase 6: persist ============
         traj_logger.log_traj(
@@ -308,8 +265,8 @@ def _execute_single_task(
         # ============ Phase 7: update state ============
         if current_hash is not None:
             prev_hash = current_hash
-        # last_step_blocked = True only when action was NOT executed (completion_check block
-        # without MAS rescue). MAS-executed steps have their action take effect so are NOT
+        recent_visual_steps.append({"step": step, "screenshot": obs.screenshot})
+        # MAS-executed steps have their action take effect, so are NOT
         # considered "blocked" for dHash purposes.
         last_step_blocked = checker_blocked and not mas_active
 
@@ -321,11 +278,8 @@ def _execute_single_task(
         terminate = False
         logger.debug(f"current step {step}")
 
-        if checker_blocked and not mas_active:
-            # completion_check block (or MAS failure fallback): do not execute
-            logger.debug("checker blocked action in step {}, continuing without execution", step)
-        elif mas_active:
-            # MAS override: execute the MAS-selected action
+        if mas_active:
+            # MAS override: execute the MAS-selected action (never terminal).
             logger.debug(f"executing MAS-overridden action ({action_source}): {action_to_execute}")
             try:
                 obs = env.execute_action(action_to_execute)
@@ -333,6 +287,9 @@ def _execute_single_task(
             except Exception as exc:
                 logger.exception(f"MAS-selected action execution failed at step {step}: {exc}")
                 raise
+        elif checker_blocked:
+            # checker block: do not execute the rejected terminal action
+            logger.debug("checker blocked action in step {}, continuing without execution", step)
         elif action.action_type in [ENV_FAIL, FINISHED, UNKNOWN]:
             logger.debug(f"task terminated in step {step} with action {action.action_type}")
             terminate = True
@@ -383,7 +340,7 @@ def _process_task_on_env(
     checker_no_change_k: int = 3,
     checker_enable_answer_trigger: bool = True,
     mas_enabled: bool = False,
-    mas_skip_recent_k: int = 3,
+    mas_skip_recent_k: int = 8,
     mas_recent_window: int = 5,
     mas_click_tol: int = 80,
     mas_drag_tol: int = 100,
@@ -547,7 +504,7 @@ def run_agent_with_evaluation(
     checker_no_change_k: int = 3,
     checker_enable_answer_trigger: bool = True,
     mas_enabled: bool = False,
-    mas_skip_recent_k: int = 3,
+    mas_skip_recent_k: int = 8,
     mas_recent_window: int = 5,
     mas_click_tol: int = 80,
     mas_drag_tol: int = 100,

@@ -40,7 +40,10 @@ def action_signature(
     """Reduce an action dict to a coarse signature for repetition detection.
 
     The signature is bucketed by coordinate cluster so near-identical clicks
-    or drags collapse to the same key.
+    collapse to the same key. For drags, the signature is **direction-based**
+    (up/down/left/right) rather than coord-bucketed — this catches "shifted
+    scroll variants" (e.g., scroll-up from y=1700 vs y=1900) as the same
+    behavioral pattern.
     """
     if not action:
         return ("none",)
@@ -58,13 +61,16 @@ def action_signature(
             (action.get("y", 0) // click_tol) * click_tol,
         )
     elif t == "drag":
-        return (
-            "drag",
-            (action.get("start_x", 0) // drag_tol) * drag_tol,
-            (action.get("start_y", 0) // drag_tol) * drag_tol,
-            (action.get("end_x", 0) // drag_tol) * drag_tol,
-            (action.get("end_y", 0) // drag_tol) * drag_tol,
-        )
+        # Direction-based signature: collapse all up/down/left/right drags
+        # to a single key regardless of exact start/end coords. This catches
+        # repeated scroll-loops where agent shifts coords slightly each time.
+        dy = action.get("end_y", 0) - action.get("start_y", 0)
+        dx = action.get("end_x", 0) - action.get("start_x", 0)
+        if abs(dy) >= abs(dx):
+            direction = "up" if dy < 0 else "down"
+        else:
+            direction = "left" if dx < 0 else "right"
+        return ("drag", direction)
     elif t == "input_text":
         return ("input_text", action.get("text", "")[:30])
     else:
@@ -125,8 +131,10 @@ def format_anti_bias_text(
                 f"attempted {count} time(s), no visible effect"
             )
         elif sig[0] == "drag":
+            # Direction-based signature: sig = ("drag", direction)
+            direction = sig[1]
             lines.append(
-                f"  ・ drag from ({sig[1]}, {sig[2]}) to ({sig[3]}, {sig[4]}) — "
+                f"  ・ drag in direction '{direction}' — "
                 f"attempted {count} time(s), no visible effect"
             )
         elif sig[0] == "input_text":
@@ -149,13 +157,32 @@ def format_anti_bias_text(
 
 
 # --------------------------------------------------------------------------
-# Fallback action (F1)
+# Fallback action (F1) — escalating sequence based on consecutive count
 # --------------------------------------------------------------------------
 
 
-def fallback_action() -> dict:
-    """The F1 fallback: navigate back. Used when all candidates are filtered."""
-    return {"action_type": "navigate_back"}
+# Progressively more aggressive escape actions. Index = consecutive_fallback_count.
+# - idx 0/1: soft escape via navigate_back (up one level)
+# - idx 2+: aggressive escape via navigate_home (jump to launcher, force re-plan)
+# - idx 3+: navigate_back from home (variation)
+FALLBACK_SEQUENCE: list[dict] = [
+    {"action_type": "navigate_back"},
+    {"action_type": "navigate_back"},
+    {"action_type": "navigate_home"},
+    {"action_type": "navigate_back"},
+]
+
+
+def fallback_action(consecutive_count: int = 0) -> dict:
+    """Return the fallback action for the given consecutive-fallback count.
+
+    Used when all MAS candidates have been filtered out. The action escalates
+    from soft (navigate_back) to aggressive (navigate_home) with consecutive
+    fires, giving agent progressively more escape velocity from nested
+    navigation traps. Clamped at the last sequence entry.
+    """
+    idx = min(max(consecutive_count, 0), len(FALLBACK_SEQUENCE) - 1)
+    return dict(FALLBACK_SEQUENCE[idx])
 
 
 # --------------------------------------------------------------------------
@@ -206,11 +233,12 @@ def run_mas_divergence(
     observation: dict,
     task_goal: str,
     executed_actions: list[dict],
-    skip_recent_k: int = 3,
+    skip_recent_k: int = 8,
     recent_sig_window: int = 5,
     click_tol: int = 80,
     drag_tol: int = 100,
     rejected_action: dict | None = None,
+    consecutive_fallback_count: int = 0,
 ) -> MASDivergenceResult:
     """Run MAS divergence: generate 3 candidates, filter, random pick from valid.
 
@@ -227,6 +255,9 @@ def run_mas_divergence(
             signature is added to recent_sigs so candidates and anti-bias text
             include it. Critical for completion_check_loop where the rejected
             FINISHED/ANSWER action is NOT in executed_actions.
+        consecutive_fallback_count: count of consecutive fallback fires in the
+            current streak. Used to pick a progressively more aggressive
+            fallback action from FALLBACK_SEQUENCE.
 
     Returns:
         MASDivergenceResult with all candidates' metadata and the selected action.
@@ -308,17 +339,20 @@ def run_mas_divergence(
             recent_sigs=list(recent_sigs),
         )
     else:
-        # F1 fallback
+        # F1 fallback — escalates based on consecutive count
+        fb_action = fallback_action(consecutive_fallback_count)
         logger.warning(
-            "All MAS candidates filtered; using F1 fallback (navigate_back). "
+            "All MAS candidates filtered; using F1 fallback (idx={}, action={}). "
             "recent_sigs={}",
+            consecutive_fallback_count,
+            fb_action,
             list(recent_sigs),
         )
         return MASDivergenceResult(
             engaged=True,
             candidates=candidates,
             selected_role="fallback",
-            selected_action=fallback_action(),
+            selected_action=fb_action,
             fallback_used=True,
             recent_sigs=list(recent_sigs),
         )

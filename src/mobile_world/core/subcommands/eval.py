@@ -411,8 +411,8 @@ def configure_parser(subparsers: argparse._SubParsersAction) -> None:
         "--mas_skip_recent_k",
         dest="mas_skip_recent_k",
         type=int,
-        default=3,
-        help="For the skip_recent MAS agent, how many recent history entries to drop (default: 3)",
+        default=8,
+        help="For the skip_recent MAS agent, how many recent history entries to drop (default: 8)",
     )
     eval_parser.add_argument(
         "--mas-recent-window",
@@ -478,7 +478,7 @@ async def _execute_pass_k(
             checker_no_change_k=getattr(args, "checker_no_change_k", 3),
             checker_enable_answer_trigger=not getattr(args, "checker_disable_answer_trigger", False),
             mas_enabled=getattr(args, "mas_enabled", False),
-            mas_skip_recent_k=getattr(args, "mas_skip_recent_k", 3),
+            mas_skip_recent_k=getattr(args, "mas_skip_recent_k", 8),
             mas_recent_window=getattr(args, "mas_recent_window", 5),
             mas_finished_loop_k=getattr(args, "mas_finished_loop_k", 3),
         )
@@ -564,7 +564,7 @@ async def execute(args: argparse.Namespace) -> None:
         checker_no_change_k=getattr(args, "checker_no_change_k", 3),
         checker_enable_answer_trigger=not getattr(args, "checker_disable_answer_trigger", False),
         mas_enabled=getattr(args, "mas_enabled", False),
-        mas_skip_recent_k=getattr(args, "mas_skip_recent_k", 3),
+        mas_skip_recent_k=getattr(args, "mas_skip_recent_k", 8),
         mas_recent_window=getattr(args, "mas_recent_window", 5),
         mas_finished_loop_k=getattr(args, "mas_finished_loop_k", 3),
     )
