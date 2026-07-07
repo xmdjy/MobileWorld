@@ -18,13 +18,19 @@ from __future__ import annotations
 
 import random
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from loguru import logger
 
-# Re-use action type constant from existing models
-from mobile_world.runtime.utils.models import JSONAction
+from mobile_world.runtime.utils.models import ANSWER, ENV_FAIL, FINISHED, UNKNOWN
+
+# Terminal / abnormal action types a MAS escape candidate must never be. The MAS
+# override branch (runner Phase 8) executes the selected action directly and
+# bypasses the runner's terminate handling, so a sampled finished/answer would
+# either waste the escape on a non-action or make env.execute_action raise and
+# crash the task. The risk rises once candidates are sampled at temperature > 0.
+TERMINAL_ACTION_TYPES = frozenset({FINISHED, ANSWER, ENV_FAIL, UNKNOWN})
 
 
 # --------------------------------------------------------------------------
@@ -239,6 +245,8 @@ def run_mas_divergence(
     drag_tol: int = 100,
     rejected_action: dict | None = None,
     consecutive_fallback_count: int = 0,
+    candidate_temperature: float = 0.7,
+    filter_min_repeats: int = 2,
 ) -> MASDivergenceResult:
     """Run MAS divergence: generate 3 candidates, filter, random pick from valid.
 
@@ -258,6 +266,16 @@ def run_mas_divergence(
         consecutive_fallback_count: count of consecutive fallback fires in the
             current streak. Used to pick a progressively more aggressive
             fallback action from FALLBACK_SEQUENCE.
+        candidate_temperature: sampling temperature for the candidate proposals.
+            The 3 candidate calls share one model and near-identical prompts, so
+            at T=0 they collapse to near-identical (often verbatim) actions. A
+            non-zero temperature lets the warm/cold/skip_recent views actually
+            diverge.
+        filter_min_repeats: a candidate is rejected only if its action signature
+            has been tried at least this many times in the recent window (a
+            confirmed-dead action). At 1 this reproduces the old "reject any
+            signature seen even once" behavior; >=2 loosens it so a candidate
+            merely resembling a single recent action is not discarded.
 
     Returns:
         MASDivergenceResult with all candidates' metadata and the selected action.
@@ -269,13 +287,16 @@ def run_mas_divergence(
         executed_actions, n=recent_sig_window, click_tol=click_tol, drag_tol=drag_tol
     )
 
-    # If a specific rejected action is given (e.g. finished/answer blocked by
-    # completion_check_loop), merge its signature in so candidates avoid it.
+    # The exact action being overridden is HARD-banned from the candidate set
+    # regardless of frequency — the whole point of the override is to diverge
+    # away from it (the runner passes the current stuck action as rejected_action).
+    hard_banned_sigs: set[tuple] = set()
     if rejected_action is not None:
         rej_sig = action_signature(
             rejected_action, click_tol=click_tol, drag_tol=drag_tol
         )
         recent_sigs.add(rej_sig)
+        hard_banned_sigs.add(rej_sig)
         # Treat the rejected action as "attempted N+1 times" for the anti-bias
         # text (N is the number of times it already appeared in executed_actions,
         # which is typically 0 for a blocked finished/answer).
@@ -292,6 +313,8 @@ def run_mas_divergence(
                 history_mode=role,
                 skip_recent_k=skip_recent_k,
                 extra_instruction=anti_bias,
+                executed_actions=executed_actions,
+                temperature=candidate_temperature,
             )
             candidates.append(
                 CandidateResult(
@@ -315,16 +338,33 @@ def run_mas_divergence(
                 )
             )
 
-    # Filter
+    # Filter, in priority order:
+    #   1. parse failures
+    #   2. terminal/abnormal actions (never a valid loop escape; see above)
+    #   3. the hard-banned action being overridden (force divergence away from it)
+    #   4. signatures tried >= filter_min_repeats times recently (confirmed-dead).
+    # Rule 4 is loosened from the old "reject any signature seen even once" so a
+    # candidate merely resembling a single recent action is not discarded and we
+    # do not collapse to the F1 fallback when all three brush a recent signature.
     for c in candidates:
         if c.parse_failed:
             c.filtered = True
             c.filter_reason = "parse_failed"
             continue
-        sig = action_signature(c.action, click_tol=click_tol, drag_tol=drag_tol)
-        if sig in recent_sigs:
+        action_type = (c.action or {}).get("action_type")
+        if action_type in TERMINAL_ACTION_TYPES:
             c.filtered = True
-            c.filter_reason = f"signature_in_recent: {sig}"
+            c.filter_reason = f"terminal_candidate: {action_type}"
+            continue
+        sig = action_signature(c.action, click_tol=click_tol, drag_tol=drag_tol)
+        if sig in hard_banned_sigs:
+            c.filtered = True
+            c.filter_reason = f"hard_banned_rejected_action: {sig}"
+            continue
+        repeats = freq_counter.get(sig, 0)
+        if repeats >= filter_min_repeats:
+            c.filtered = True
+            c.filter_reason = f"signature_repeated_{repeats}x: {sig}"
 
     valid = [c for c in candidates if not c.filtered]
 
